@@ -11,6 +11,7 @@ use App\Repositories\Contracts\LookupRepositoryInterface;
 use App\Repositories\Contracts\NotificationRepositoryInterface;
 use App\Repositories\Contracts\TicketRepositoryInterface;
 use App\Services\Audit\AuditService;
+use App\Services\Mail\MailService;
 use App\Services\Settings\Settings;
 
 /**
@@ -28,6 +29,7 @@ final class TicketService
         private readonly NotificationRepositoryInterface $notifications,
         private readonly SlaService $sla,
         private readonly AuditService $audit,
+        private readonly MailService $mail,
         private readonly Database $db,
     ) {
     }
@@ -93,6 +95,20 @@ final class TicketService
 
         $ticket = $this->tickets->find($ticketId);
         \assert($ticket !== null);
+
+        // Confirmation email to the requester (queued).
+        $email = $ticket->requesterEmail() ?? ($input['requester_email'] ?? null);
+        if ($email) {
+            $this->mail->queueTemplate($email, $ticket->requesterName(), 'ticket_created', [
+                'ticket'   => [
+                    'reference' => $ticket->reference(),
+                    'subject'   => $ticket->subject(),
+                    'url'       => $this->ticketUrl($ticket),
+                ],
+                'customer' => ['first_name' => explode(' ', $ticket->requesterName())[0] ?? 'there'],
+            ]);
+        }
+
         return $ticket;
     }
 
@@ -191,17 +207,43 @@ final class TicketService
             return;
         }
         $ticket = $this->tickets->find($ticketId);
-        if ($ticket === null || $ticket->requesterId() === null) {
+        if ($ticket === null) {
             return;
         }
-        $this->notifications->create([
-            'user_id' => $ticket->requesterId(),
-            'type'    => 'ticket.reply',
-            'title'   => 'New reply on ' . $ticket->reference(),
-            'body'    => $ticket->subject(),
-            'url'     => '/portal/tickets/' . $ticket->id(),
-            'icon'    => 'reply',
-        ]);
+
+        // In-app notification for registered customers.
+        if ($ticket->requesterId() !== null) {
+            $this->notifications->create([
+                'user_id' => $ticket->requesterId(),
+                'type'    => 'ticket.reply',
+                'title'   => 'New reply on ' . $ticket->reference(),
+                'body'    => $ticket->subject(),
+                'url'     => '/portal/tickets/' . $ticket->id(),
+                'icon'    => 'reply',
+            ]);
+        }
+
+        // Email notification to the requester (queued).
+        if ($ticket->requesterEmail()) {
+            $this->mail->queueTemplate($ticket->requesterEmail(), $ticket->requesterName(), 'ticket_agent_reply', [
+                'ticket'   => [
+                    'reference' => $ticket->reference(),
+                    'subject'   => $ticket->subject(),
+                    'url'       => $this->ticketUrl($ticket),
+                ],
+                'customer' => ['first_name' => explode(' ', $ticket->requesterName())[0] ?? 'there'],
+                'reply'    => ['body' => 'You have a new reply from our support team.'],
+            ]);
+        }
+    }
+
+    private function ticketUrl(\App\Models\Ticket $ticket): string
+    {
+        $base = rtrim((string) config('app.url', ''), '/');
+        if ($ticket->requesterId() !== null) {
+            return $base . '/portal/tickets/' . $ticket->id();
+        }
+        return $base . '/track?reference=' . urlencode($ticket->reference());
     }
 
     private function buildReference(): string

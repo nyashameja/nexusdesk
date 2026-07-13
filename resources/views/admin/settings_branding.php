@@ -6,10 +6,7 @@ $theme = setting('branding.default_theme', 'system');
 ?>
 <div class="page-head"><h1>Settings</h1></div>
 
-<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px">
-    <a class="btn btn-soft btn-sm" href="/admin/settings/branding">Branding</a>
-    <a class="btn btn-ghost btn-sm" href="/admin/settings/general">General</a>
-</div>
+<?= \App\Core\View::render('partials.settings_tabs', ['tab' => 'branding']) ?>
 
 <div class="card" style="max-width:620px"><div class="card-body">
     <h2 style="font-size:16px;margin-bottom:4px">Branding</h2>

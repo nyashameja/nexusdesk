@@ -22,7 +22,17 @@ This project is being built in **approved, reviewable stages**. See the roadmap 
 | 6 | Project skeleton — kernel, router, DI container, middleware, views, installer, tests | ✅ Delivered |
 | 7 | Auth + RBAC + users + departments + settings/branding + audit + security core | ✅ Delivered |
 | 8 | Help-desk core — tickets, replies, notes, status, assign, transfer, time, SLA | ✅ Delivered |
-| 9+ | KB, email engine, notifications, Zoho, reports, full API, AI, backups | Planned |
+| 9 | Knowledge base — categories, articles, search, feedback, management | ✅ Delivered |
+| 10 | Email engine — SMTP, templates, DB job queue, cron worker | ✅ Delivered |
+| 11 | Notifications centre + global search | ✅ Delivered |
+| 12+ | Zoho Books, reporting/exports, full REST API, AI, backups, hardening | Planned |
+
+### Cron jobs (cPanel)
+
+```
+* * * * *   php /path/nexusdesk/cron/process_jobs.php   # queue worker (email, etc.)
+*/5 * * * * php /path/nexusdesk/cron/sla_monitor.php    # SLA breach detection
+```
 
 ## Running locally
 

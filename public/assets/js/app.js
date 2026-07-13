@@ -39,6 +39,23 @@
     }
   });
 
+  // --- Live unread notification count ---------------------------------------
+  var badge = document.querySelector('[data-notif-count]');
+  if (badge && window.fetch) {
+    var refresh = function () {
+      fetch('/notifications/unread-count', { headers: { 'Accept': 'application/json' } })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (data) {
+          if (!data) { return; }
+          var n = data.count || 0;
+          if (n > 0) { badge.textContent = n > 99 ? '99' : n; badge.removeAttribute('hidden'); }
+          else { badge.setAttribute('hidden', ''); }
+        })
+        .catch(function () {});
+    };
+    setInterval(refresh, 60000); // poll once a minute
+  }
+
   // --- Confirm destructive actions ------------------------------------------
   document.addEventListener('submit', function (e) {
     var form = e.target;

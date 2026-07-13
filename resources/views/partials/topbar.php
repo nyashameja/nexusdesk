@@ -16,7 +16,7 @@ if ($user) {
         <input type="search" name="q" placeholder="Search tickets, people, invoices…" aria-label="Search">
     </form>
     <button class="icnbtn" data-theme-toggle title="Toggle theme">🌗</button>
-    <button class="icnbtn" title="Notifications">🔔<?php if ($unread > 0): ?><span class="badge-dot"><?= (int) min($unread, 99) ?></span><?php endif; ?></button>
+    <a class="icnbtn" href="/notifications" title="Notifications" data-notif-bell>🔔<span class="badge-dot" data-notif-count <?= $unread > 0 ? '' : 'hidden' ?>><?= (int) min($unread, 99) ?></span></a>
     <?php if ($user): ?>
         <div class="ava" title="<?= e($user->fullName()) ?>"><?= e($user->initials()) ?></div>
     <?php endif; ?>

@@ -50,6 +50,10 @@ return function (Container $container): void {
         \App\Repositories\Contracts\AuditRepositoryInterface::class       => \App\Repositories\MySql\MySqlAuditRepository::class,
         \App\Repositories\Contracts\NotificationRepositoryInterface::class => \App\Repositories\MySql\MySqlNotificationRepository::class,
         \App\Repositories\Contracts\CompanyRepositoryInterface::class     => \App\Repositories\MySql\MySqlCompanyRepository::class,
+        \App\Repositories\Contracts\KbRepositoryInterface::class          => \App\Repositories\MySql\MySqlKbRepository::class,
+        \App\Repositories\Contracts\EmailTemplateRepositoryInterface::class => \App\Repositories\MySql\MySqlEmailTemplateRepository::class,
+        \App\Repositories\Contracts\JobRepositoryInterface::class         => \App\Repositories\MySql\MySqlJobRepository::class,
+        \App\Repositories\Contracts\SearchRepositoryInterface::class      => \App\Repositories\MySql\MySqlSearchRepository::class,
     ];
     foreach ($repositories as $interface => $implementation) {
         $container->singleton($interface, function (Container $c) use ($implementation) {

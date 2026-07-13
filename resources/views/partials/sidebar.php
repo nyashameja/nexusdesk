@@ -19,6 +19,8 @@ if ($role === 'customer') {
     $nav = [
         ['href' => '/desk', 'label' => 'Dashboard', 'icon' => '◑', 'key' => 'dashboard'],
         ['href' => '/desk/tickets', 'label' => 'Tickets', 'icon' => '▤', 'key' => 'tickets'],
+        ['href' => '/desk/kb', 'label' => 'Knowledge base', 'icon' => '▢', 'key' => 'kb'],
+        ['href' => '/desk/search', 'label' => 'Search', 'icon' => '⌕', 'key' => 'search'],
     ];
 }
 ?>
