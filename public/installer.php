@@ -68,6 +68,15 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             $dsn = "mysql:host={$db['host']};port={$db['port']};dbname={$db['name']};charset=utf8mb4";
             $pdo = new PDO($dsn, $db['user'], $db['pass'], [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
 
+            // Fresh install: drop any existing tables first, so a previous
+            // failed/partial run leaves a clean slate to re-install into.
+            $pdo->exec('SET FOREIGN_KEY_CHECKS=0');
+            $existingTables = $pdo->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN);
+            foreach ($existingTables as $table) {
+                $pdo->exec('DROP TABLE IF EXISTS `' . str_replace('`', '', (string) $table) . '`');
+            }
+            $pdo->exec('SET FOREIGN_KEY_CHECKS=1');
+
             // Run schema then seed (multi-statement).
             foreach (['/database/schema.sql', '/database/seeds/seed.sql'] as $sqlFile) {
                 $sql = file_get_contents($root . $sqlFile);

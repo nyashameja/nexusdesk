@@ -152,26 +152,29 @@ INSERT INTO email_templates (slug, name, subject, body_html, body_text, is_activ
      'Welcome. Sign in: {{login.url}}', 1);
 
 -- ---------- Core runtime settings -------------------------------------------
+-- Values are stored as JSON. We use literal JSON text (not CAST/JSON_QUOTE)
+-- so the seed is portable across MySQL 8 and MariaDB (MariaDB's JSON is an
+-- alias for LONGTEXT and does not support CAST(x AS JSON)).
 INSERT INTO settings (group_name, key_name, value, is_secret) VALUES
-  ('general',  'app_name',        JSON_QUOTE('NexusDesk'),        0),
-  ('general',  'timezone',        JSON_QUOTE('UTC'),              0),
-  ('general',  'date_format',     JSON_QUOTE('Y-m-d'),            0),
-  ('general',  'locale',          JSON_QUOTE('en'),               0),
-  ('general',  'ticket_prefix',   JSON_QUOTE('NEXUS'),            0),
-  ('branding', 'primary_color',   JSON_QUOTE('#6366f1'),          0),
-  ('branding', 'accent_color',    JSON_QUOTE('#0ea5e9'),          0),
-  ('branding', 'logo_path',       JSON_QUOTE('/assets/img/logo.svg'), 0),
-  ('branding', 'default_theme',   JSON_QUOTE('system'),           0),
-  ('security', 'session_idle_minutes',   CAST(30 AS JSON),        0),
-  ('security', 'max_login_attempts',     CAST(5 AS JSON),         0),
-  ('security', 'lockout_minutes',        CAST(15 AS JSON),        0),
-  ('security', 'enforce_2fa_admins',     CAST(false AS JSON),     0),
-  ('mail',     'from_name',       JSON_QUOTE('NexusDesk Support'),0),
-  ('mail',     'from_email',      JSON_QUOTE('support@example.com'), 0),
-  ('mail',     'driver',          JSON_QUOTE('smtp'),             0),
-  ('zoho',     'enabled',         CAST(false AS JSON),            0),
-  ('ai',       'provider',        JSON_QUOTE('null'),             0),
-  ('ai',       'enabled',         CAST(false AS JSON),            0);
+  ('general',  'app_name',        '"NexusDesk"',            0),
+  ('general',  'timezone',        '"UTC"',                  0),
+  ('general',  'date_format',     '"Y-m-d"',                0),
+  ('general',  'locale',          '"en"',                   0),
+  ('general',  'ticket_prefix',   '"NEXUS"',                0),
+  ('branding', 'primary_color',   '"#4f46e5"',              0),
+  ('branding', 'accent_color',    '"#0891b2"',              0),
+  ('branding', 'logo_path',       '"/assets/img/logo.svg"', 0),
+  ('branding', 'default_theme',   '"system"',               0),
+  ('security', 'session_idle_minutes',   '30',              0),
+  ('security', 'max_login_attempts',     '5',               0),
+  ('security', 'lockout_minutes',        '15',              0),
+  ('security', 'enforce_2fa_admins',     'false',           0),
+  ('mail',     'from_name',       '"NexusDesk Support"',    0),
+  ('mail',     'from_email',      '"support@example.com"',  0),
+  ('mail',     'driver',          '"smtp"',                 0),
+  ('zoho',     'enabled',         'false',                  0),
+  ('ai',       'provider',        '"null"',                 0),
+  ('ai',       'enabled',         'false',                  0);
 
 -- ---------- Demo administrator (installer overwrites email + password) ------
 -- Placeholder hash = password_hash('ChangeMe!123', PASSWORD_DEFAULT)
