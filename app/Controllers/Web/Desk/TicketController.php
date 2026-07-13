@@ -9,9 +9,11 @@ use App\Core\HttpException;
 use App\Core\RedirectResponse;
 use App\Core\Request;
 use App\Core\Response;
+use App\Repositories\Contracts\CompanyRepositoryInterface;
 use App\Repositories\Contracts\DepartmentRepositoryInterface;
 use App\Repositories\Contracts\LookupRepositoryInterface;
 use App\Repositories\Contracts\TicketRepositoryInterface;
+use App\Repositories\Contracts\UserRepositoryInterface;
 use App\Services\Auth\AuthContext;
 use App\Services\Ticket\SlaService;
 use App\Services\Ticket\TicketService;
@@ -29,6 +31,8 @@ final class TicketController extends Controller
         private readonly LookupRepositoryInterface $lookups,
         private readonly DepartmentRepositoryInterface $departments,
         private readonly SlaService $sla,
+        private readonly UserRepositoryInterface $users,
+        private readonly CompanyRepositoryInterface $companies,
     ) {
     }
 
@@ -56,6 +60,76 @@ final class TicketController extends Controller
             'priorities'  => $this->lookups->priorities(),
             'departments' => $this->departments->all(),
         ]);
+    }
+
+    /** Show the "raise a ticket on behalf of a client" form. */
+    public function create(Request $request): Response
+    {
+        if (!AuthContext::can('tickets.create')) {
+            throw HttpException::forbidden('You cannot create tickets.');
+        }
+        return $this->view('desk.ticket_create', [
+            'title'       => 'New ticket',
+            'active'      => 'tickets',
+            'departments' => $this->departments->all(),
+            'priorities'  => $this->lookups->priorities(),
+            'companies'   => $this->companies->paginate(1, 500),
+        ]);
+    }
+
+    /** Create a ticket on behalf of a client. */
+    public function store(Request $request): Response
+    {
+        if (!AuthContext::can('tickets.create')) {
+            throw HttpException::forbidden('You cannot create tickets.');
+        }
+
+        $validator = Validator::make(
+            $request->only(['client_email', 'client_name', 'department_id', 'priority', 'subject', 'message']),
+            [
+                'client_email'  => 'required|email',
+                'client_name'   => 'required|max:160',
+                'department_id' => 'required|integer',
+                'priority'      => 'required',
+                'subject'       => 'required|max:255',
+                'message'       => 'required|min:5',
+            ]
+        );
+        if ($validator->fails()) {
+            return (new RedirectResponse('/desk/tickets/new'))
+                ->withErrors($validator->errors())
+                ->withInput($request->all());
+        }
+
+        // Resolve the client: link to an existing customer account by email
+        // (adopting their company), otherwise open as an unregistered contact.
+        $email = strtolower(trim((string) $request->input('client_email')));
+        $existing = $this->users->findByEmail($email);
+        $requesterId = $existing?->id;
+        $companyId = $existing?->companyId;
+        if ($companyId === null && $request->input('company_id')) {
+            $companyId = (int) $request->input('company_id');
+        }
+
+        $ticket = $this->ticketService->create([
+            'subject'         => (string) $request->input('subject'),
+            'department_id'   => (int) $request->input('department_id'),
+            'priority'        => (string) $request->input('priority'),
+            'message'         => (string) $request->input('message'),
+            'requester_id'    => $requesterId,
+            'requester_email' => $email,
+            'requester_name'  => $existing?->fullName() ?? (string) $request->input('client_name'),
+            'company_id'      => $companyId,
+            'source'          => 'agent',
+        ]);
+
+        // Optionally assign to the creating agent.
+        if ((string) $request->input('assign_to_me') === '1') {
+            $this->ticketService->assign($ticket->id(), AuthContext::id(), AuthContext::id());
+        }
+
+        return (new RedirectResponse('/desk/tickets/' . $ticket->id()))
+            ->with('status', 'Ticket ' . $ticket->reference() . ' created on behalf of the client.');
     }
 
     public function show(Request $request, int $id): Response

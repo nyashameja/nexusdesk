@@ -4,7 +4,10 @@ $user = auth();
 ?>
 <div class="page-head">
     <div><h1>Good day, <?= e($user?->firstName ?? 'there') ?></h1></div>
-    <a class="btn btn-primary" href="/desk/tickets">View all tickets</a>
+    <div style="display:flex;gap:8px">
+        <a class="btn btn-ghost" href="/desk/tickets">View all tickets</a>
+        <a class="btn btn-primary" href="/desk/tickets/new">+ New ticket</a>
+    </div>
 </div>
 
 <div class="tiles" style="margin-bottom:20px">

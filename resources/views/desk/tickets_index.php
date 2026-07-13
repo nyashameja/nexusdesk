@@ -5,6 +5,7 @@ $qs = http_build_query(array_filter($filters));
 ?>
 <div class="page-head">
     <div><h1>Tickets</h1><div class="muted"><?= (int) $total ?> total</div></div>
+    <a class="btn btn-primary" href="/desk/tickets/new">+ New ticket</a>
 </div>
 
 <div class="card" style="margin-bottom:16px"><div class="card-body" style="padding:14px 16px">

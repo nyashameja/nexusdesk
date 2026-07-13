@@ -84,6 +84,8 @@ $router->group(['middleware' => $web], function (Router $router): void {
     $router->group(['prefix' => '/desk', 'middleware' => [AuthenticateMiddleware::class, EnsureStaffMiddleware::class]], function (Router $router): void {
         $router->get('', [DeskDashboard::class, 'index'])->name('desk');
         $router->get('/tickets', [DeskTicketController::class, 'index'])->name('desk.tickets');
+        $router->get('/tickets/new', [DeskTicketController::class, 'create']);
+        $router->post('/tickets', [DeskTicketController::class, 'store']);
         $router->get('/tickets/{id}', [DeskTicketController::class, 'show']);
         $router->post('/tickets/{id}/reply', [DeskTicketController::class, 'reply']);
         $router->post('/tickets/{id}/status', [DeskTicketController::class, 'updateStatus']);
