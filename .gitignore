@@ -1,0 +1,29 @@
+# Environment & secrets
+.env
+*.local
+
+# Dependencies
+/vendor/
+
+# Runtime storage (kept as empty dirs via .gitkeep later)
+/storage/logs/*
+/storage/cache/*
+/storage/sessions/*
+/storage/backups/*
+/storage/uploads/*
+/storage/zoho/*
+!**/.gitkeep
+
+# Installer lock
+/storage/installed.lock
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# Build / test artifacts
+/coverage/
+.phpunit.result.cache
