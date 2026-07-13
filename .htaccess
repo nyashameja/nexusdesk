@@ -1,0 +1,22 @@
+# NexusDesk — root .htaccess
+#
+# The intended document root is /public. This file is defence-in-depth for
+# shared hosts that force the document root to the project root: it denies web
+# access to application internals and forwards everything into /public.
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Block direct web access to sensitive directories.
+    RewriteRule ^(app|config|database|storage|resources|vendor|tests|docs)(/|$) - [F,L]
+
+    # Route all other requests into the public front controller.
+    RewriteCond %{REQUEST_URI} !^/public/
+    RewriteRule ^(.*)$ public/$1 [L]
+</IfModule>
+
+<FilesMatch "^\.env">
+    Require all denied
+</FilesMatch>
+
+Options -Indexes

@@ -19,8 +19,24 @@ This project is being built in **approved, reviewable stages**. See the roadmap 
 | 3 | Page inventory, navigation & user journeys | ✅ Delivered |
 | 4 | Wireframes & design system | ✅ Delivered |
 | 5 | REST API specification | ✅ Delivered |
-| 6 | Project skeleton (code) | ⏳ Next — awaiting approval |
-| 7+ | Auth, tickets, portal, KB, email, Zoho, reports, API, AI, installer | Planned |
+| 6 | Project skeleton — kernel, router, DI container, middleware, views, installer, tests | ✅ Delivered |
+| 7 | Auth + RBAC + users + departments + settings/branding + audit + security core | ✅ Delivered |
+| 8 | Help-desk core — tickets, replies, notes, status, assign, transfer, time, SLA | ✅ Delivered |
+| 9+ | KB, email engine, notifications, Zoho, reports, full API, AI, backups | Planned |
+
+## Running locally
+
+```bash
+composer install
+# Point a MySQL/MariaDB database at the app, then visit /installer.php,
+# or manually:  mysql yourdb < database/schema.sql && mysql yourdb < database/seeds/seed.sql
+cp .env.example .env          # set DB + mail credentials (the installer writes this for you)
+php -S 127.0.0.1:8000 -t public public/index.php   # dev server (Apache in production)
+vendor/bin/phpunit            # run the test suite
+```
+
+The document root is `public/`. On cPanel, upload the project and point the domain's document
+root at `public/` (a root `.htaccess` also guards internals if you cannot).
 
 ## Design documentation
 

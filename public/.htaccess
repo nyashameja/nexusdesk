@@ -1,0 +1,24 @@
+# NexusDesk — Apache front-controller rewrite (cPanel)
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Serve existing files/directories directly (assets, installer).
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+
+    # Everything else → front controller.
+    RewriteRule ^ index.php [L]
+</IfModule>
+
+# Deny access to dotfiles (.env lives above web root, but defence-in-depth).
+<FilesMatch "^\.">
+    Require all denied
+</FilesMatch>
+
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+</IfModule>
+
+# Disable directory listing.
+Options -Indexes
