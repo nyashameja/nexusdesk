@@ -5,6 +5,8 @@ $tabs = [
     'mail'      => ['Email', '/admin/settings/mail'],
     'templates' => ['Templates', '/admin/settings/templates'],
     'zoho'      => ['Zoho Books', '/admin/settings/zoho'],
+    'ai'        => ['AI', '/admin/settings/ai'],
+    'api'       => ['API tokens', '/admin/settings/api'],
 ];
 $current = $tab ?? '';
 ?>

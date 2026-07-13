@@ -48,6 +48,7 @@ if ($role === 'customer') {
         <a class="navlink<?= $is('users') ?>" href="/admin/users"><span class="g">◔</span>Users</a>
         <a class="navlink<?= $is('departments') ?>" href="/admin/departments"><span class="g">▧</span>Departments</a>
         <a class="navlink<?= $is('settings') ?>" href="/admin/settings/branding"><span class="g">◐</span>Settings</a>
+        <a class="navlink<?= $is('backups') ?>" href="/admin/backups"><span class="g">▽</span>Backups</a>
     <?php endif; ?>
 
     <div class="spacer"></div>

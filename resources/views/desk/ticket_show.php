@@ -37,8 +37,15 @@ if ($slaRemaining !== null) {
                 <?= csrf_field() ?>
                 <div class="reply-tools">
                     <span class="chip">Canned ▾</span>
-                    <span class="chip ai">🤖 AI ▾</span>
+                    <span class="chip ai" data-ai="summary" data-ticket="<?= $id ?>">🤖 Summarise</span>
+                    <span class="chip ai" data-ai="reply" data-ticket="<?= $id ?>">✨ Suggest reply</span>
+                    <span class="chip ai" data-ai="sentiment" data-ticket="<?= $id ?>">😊 Sentiment</span>
                     <span class="chip">📎 Attach</span>
+                </div>
+                <div class="ai-result" data-ai-result hidden style="background:var(--brand-soft);border:1px solid color-mix(in srgb,var(--brand) 30%,transparent);border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:13px">
+                    <div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">AI suggestion <span data-ai-stub></span></div>
+                    <div data-ai-output></div>
+                    <button type="button" class="btn btn-ghost btn-sm" data-ai-insert style="margin-top:8px">Insert into reply</button>
                 </div>
                 <div class="field" style="margin-bottom:10px">
                     <textarea class="textarea" name="body" placeholder="Write a reply…" required></textarea>

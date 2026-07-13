@@ -56,6 +56,46 @@
     setInterval(refresh, 60000); // poll once a minute
   }
 
+  // --- AI assist (ticket workspace) -----------------------------------------
+  function csrf() {
+    var el = document.querySelector('input[name="_token"]');
+    return el ? el.value : '';
+  }
+  document.addEventListener('click', function (e) {
+    var chip = e.target.closest('[data-ai]');
+    if (chip && window.fetch) {
+      var task = chip.getAttribute('data-ai');
+      var ticket = chip.getAttribute('data-ticket');
+      var box = document.querySelector('[data-ai-result]');
+      var out = document.querySelector('[data-ai-output]');
+      var stub = document.querySelector('[data-ai-stub]');
+      if (box && out) {
+        box.removeAttribute('hidden');
+        out.textContent = 'Thinking…';
+        fetch('/desk/tickets/' + ticket + '/ai/' + task, {
+          method: 'POST',
+          headers: { 'X-CSRF-Token': csrf(), 'Accept': 'application/json' }
+        })
+          .then(function (r) { return r.json(); })
+          .then(function (res) {
+            var data = (res && res.data) ? res.data : res;
+            out.textContent = data.output || 'No suggestion.';
+            if (stub) { stub.textContent = data.stubbed ? '(stub — connect a provider in Settings → AI)' : ''; }
+          })
+          .catch(function () { out.textContent = 'AI request failed.'; });
+      }
+    }
+    var insert = e.target.closest('[data-ai-insert]');
+    if (insert) {
+      var text = document.querySelector('[data-ai-output]');
+      var textarea = document.querySelector('[data-reply-box] textarea[name="body"]');
+      if (text && textarea) {
+        textarea.value = (textarea.value ? textarea.value + '\n\n' : '') + text.textContent;
+        textarea.focus();
+      }
+    }
+  });
+
   // --- Confirm destructive actions ------------------------------------------
   document.addEventListener('submit', function (e) {
     var form = e.target;

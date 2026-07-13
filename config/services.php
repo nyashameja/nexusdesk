@@ -39,6 +39,16 @@ return function (Container $container): void {
         fn (): \App\Integrations\Ai\AiProviderInterface => new \App\Integrations\Ai\NullAiProvider()
     );
 
+    // --- Backups ------------------------------------------------------------
+    $container->singleton(
+        \App\Services\Backup\BackupService::class,
+        fn (Container $c): \App\Services\Backup\BackupService =>
+            new \App\Services\Backup\BackupService(
+                $c->get(Database::class),
+                dirname(__DIR__) . '/storage/backups'
+            )
+    );
+
     // --- Zoho Books integration --------------------------------------------
     $container->singleton(
         \App\Integrations\Zoho\ZohoBooksClientInterface::class,

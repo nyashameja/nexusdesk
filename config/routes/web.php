@@ -25,6 +25,10 @@ use App\Controllers\Web\Admin\SettingController as AdminSettings;
 use App\Controllers\Web\Admin\MailController as AdminMail;
 use App\Controllers\Web\Admin\TemplateController as AdminTemplates;
 use App\Controllers\Web\Admin\ZohoController as AdminZoho;
+use App\Controllers\Web\Admin\ApiTokenController as AdminApiTokens;
+use App\Controllers\Web\Admin\AiController as AdminAi;
+use App\Controllers\Web\Admin\BackupController as AdminBackups;
+use App\Controllers\Web\Desk\AiController as DeskAi;
 
 use App\Middleware\StartSessionMiddleware;
 use App\Middleware\LoadUserMiddleware;
@@ -97,6 +101,9 @@ $router->group(['middleware' => $web], function (Router $router): void {
 
         // Global search (staff)
         $router->get('/search', [SearchController::class, 'index'])->name('desk.search');
+
+        // AI assist (JSON; used by the ticket workspace)
+        $router->post('/tickets/{id}/ai/{task}', [DeskAi::class, 'run']);
     });
 
     // ---- Notifications (any authenticated user) ---------------------------
@@ -156,5 +163,17 @@ $router->group(['middleware' => $web], function (Router $router): void {
         $router->get('/settings/zoho/callback', [AdminZoho::class, 'callback']);
         $router->post('/settings/zoho/sync', [AdminZoho::class, 'sync']);
         $router->post('/settings/zoho/disconnect', [AdminZoho::class, 'disconnect']);
+        // API tokens
+        $router->get('/settings/api', [AdminApiTokens::class, 'index'])->name('admin.api');
+        $router->post('/settings/api', [AdminApiTokens::class, 'store']);
+        $router->post('/settings/api/{id}/revoke', [AdminApiTokens::class, 'revoke']);
+        // AI settings
+        $router->get('/settings/ai', [AdminAi::class, 'index'])->name('admin.ai');
+        $router->post('/settings/ai', [AdminAi::class, 'update']);
+        // Backups
+        $router->get('/backups', [AdminBackups::class, 'index'])->name('admin.backups');
+        $router->post('/backups', [AdminBackups::class, 'create']);
+        $router->get('/backups/{file}/download', [AdminBackups::class, 'download']);
+        $router->post('/backups/{file}/delete', [AdminBackups::class, 'delete']);
     });
 });

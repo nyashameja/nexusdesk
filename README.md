@@ -27,7 +27,13 @@ This project is being built in **approved, reviewable stages**. See the roadmap 
 | 11 | Notifications centre + global search | ✅ Delivered |
 | 12 | Zoho Books integration — OAuth, cached invoices/quotes/statements, PDF | ✅ Delivered |
 | 13 | Reporting & dashboards — charts + CSV/Excel/PDF export | ✅ Delivered |
-| 14+ | Full REST API + tokens, AI touchpoints, backups/restore, hardening | Planned |
+| 14 | REST API v1 + token management + rate limiting | ✅ Delivered |
+| 15 | AI touchpoints (summarise / suggest reply / sentiment) wired to the workspace | ✅ Delivered |
+| 16 | Backups (gzipped SQL dumps) + admin UI + nightly cron | ✅ Delivered |
+| 17 | Hardening pass + deployment & security guides | ✅ Delivered |
+
+**All 17 roadmap stages are complete.** See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) and
+[`docs/SECURITY.md`](docs/SECURITY.md).
 
 ### Cron jobs (cPanel)
 
@@ -35,7 +41,20 @@ This project is being built in **approved, reviewable stages**. See the roadmap 
 * * * * *   php /path/nexusdesk/cron/process_jobs.php   # queue worker (email, etc.)
 */5 * * * * php /path/nexusdesk/cron/sla_monitor.php    # SLA breach detection
 0 * * * *   php /path/nexusdesk/cron/zoho_sync.php      # Zoho Books cache sync (hourly)
+30 2 * * *  php /path/nexusdesk/cron/backup.php         # nightly database backup
 ```
+
+### REST API
+
+Bearer-token auth against `/api/v1` (create tokens in Admin → Settings → API tokens):
+
+```
+curl -H "Authorization: Bearer <token>" https://your-domain/api/v1/tickets
+```
+
+Endpoints: tickets (list/create/show/reply), departments, lookups, knowledge base, invoices,
+notifications, `/auth/me`, and a public `/api/v1/health`. Rate-limited with `X-RateLimit-*` headers.
+Full contract in [`docs/architecture/05-API-SPECIFICATION.md`](docs/architecture/05-API-SPECIFICATION.md).
 
 ### Zoho Books
 
