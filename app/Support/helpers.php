@@ -110,6 +110,14 @@ if (!function_exists('asset')) {
     }
 }
 
+if (!function_exists('money')) {
+    /** Format a monetary amount with a currency code. */
+    function money(float|int|string $amount, string $currency = 'USD'): string
+    {
+        return $currency . ' ' . number_format((float) $amount, 2);
+    }
+}
+
 if (!function_exists('setting')) {
     /** Read a runtime setting (group.key), falling back to $default. */
     function setting(string $key, mixed $default = null): mixed

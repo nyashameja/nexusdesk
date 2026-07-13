@@ -14,6 +14,9 @@ if ($role === 'customer') {
         ['href' => '/portal', 'label' => 'Dashboard', 'icon' => '◑', 'key' => 'dashboard'],
         ['href' => '/portal/tickets', 'label' => 'My tickets', 'icon' => '▤', 'key' => 'tickets'],
         ['href' => '/kb', 'label' => 'Knowledge base', 'icon' => '▢', 'key' => 'kb'],
+        ['href' => '/portal/invoices', 'label' => 'Invoices', 'icon' => '$', 'key' => 'invoices'],
+        ['href' => '/portal/quotes', 'label' => 'Quotes', 'icon' => '◇', 'key' => 'quotes'],
+        ['href' => '/portal/statements', 'label' => 'Statements', 'icon' => '▤', 'key' => 'statements'],
     ];
 } elseif (in_array($role, ['agent', 'manager', 'administrator'], true)) {
     $nav = [
@@ -35,7 +38,8 @@ if ($role === 'customer') {
 
     <?php if (in_array($role, ['manager', 'administrator'], true)): ?>
         <div class="group">Management</div>
-        <a class="navlink<?= $is('manage') ?>" href="/manage"><span class="g">◔</span>Reports</a>
+        <a class="navlink<?= $is('manage') ?>" href="/manage"><span class="g">◔</span>Dashboard</a>
+        <a class="navlink<?= $is('reports') ?>" href="/manage/reports"><span class="g">▦</span>Reports</a>
     <?php endif; ?>
 
     <?php if ($role === 'administrator'): ?>

@@ -15,12 +15,16 @@ use App\Controllers\Web\Desk\DashboardController as DeskDashboard;
 use App\Controllers\Web\Desk\TicketController as DeskTicketController;
 use App\Controllers\Web\Portal\DashboardController as PortalDashboard;
 use App\Controllers\Web\Portal\TicketController as PortalTicketController;
+use App\Controllers\Web\Portal\FinanceController as PortalFinance;
+use App\Controllers\Web\Manage\DashboardController as ManageDashboard;
+use App\Controllers\Web\Manage\ReportController as ManageReports;
 use App\Controllers\Web\Admin\DashboardController as AdminDashboard;
 use App\Controllers\Web\Admin\UserController as AdminUsers;
 use App\Controllers\Web\Admin\DepartmentController as AdminDepartments;
 use App\Controllers\Web\Admin\SettingController as AdminSettings;
 use App\Controllers\Web\Admin\MailController as AdminMail;
 use App\Controllers\Web\Admin\TemplateController as AdminTemplates;
+use App\Controllers\Web\Admin\ZohoController as AdminZoho;
 
 use App\Middleware\StartSessionMiddleware;
 use App\Middleware\LoadUserMiddleware;
@@ -30,6 +34,7 @@ use App\Middleware\RedirectIfAuthenticatedMiddleware;
 use App\Middleware\EnsureStaffMiddleware;
 use App\Middleware\EnsureCustomerMiddleware;
 use App\Middleware\EnsureAdminMiddleware;
+use App\Middleware\EnsureManagerMiddleware;
 
 /**
  * Web routes. The whole tree runs the session + user-loading + CSRF stack;
@@ -110,6 +115,24 @@ $router->group(['middleware' => $web], function (Router $router): void {
         $router->post('/tickets', [PortalTicketController::class, 'store']);
         $router->get('/tickets/{id}', [PortalTicketController::class, 'show']);
         $router->post('/tickets/{id}/reply', [PortalTicketController::class, 'reply']);
+
+        // Finance (Zoho-backed, read-only)
+        $router->get('/invoices', [PortalFinance::class, 'invoices'])->name('portal.invoices');
+        $router->get('/invoices/{id}', [PortalFinance::class, 'invoice']);
+        $router->get('/invoices/{id}/pdf', [PortalFinance::class, 'invoicePdf']);
+        $router->get('/quotes', [PortalFinance::class, 'quotes'])->name('portal.quotes');
+        $router->get('/statements', [PortalFinance::class, 'statements'])->name('portal.statements');
+    });
+
+    // ---- Manager (reporting) ----------------------------------------------
+    $router->group(['prefix' => '/manage', 'middleware' => [AuthenticateMiddleware::class, EnsureManagerMiddleware::class]], function (Router $router): void {
+        $router->get('', [ManageDashboard::class, 'index'])->name('manage');
+        $router->get('/reports', [ManageReports::class, 'index'])->name('manage.reports');
+        $router->get('/reports/volume', [ManageReports::class, 'volume']);
+        $router->get('/reports/sla', [ManageReports::class, 'sla']);
+        $router->get('/reports/agents', [ManageReports::class, 'agents']);
+        $router->get('/reports/satisfaction', [ManageReports::class, 'satisfaction']);
+        $router->get('/reports/{report}/export', [ManageReports::class, 'export']);
     });
 
     // ---- Administrator ----------------------------------------------------
@@ -127,5 +150,11 @@ $router->group(['middleware' => $web], function (Router $router): void {
         $router->get('/settings/templates', [AdminTemplates::class, 'index'])->name('admin.templates');
         $router->get('/settings/templates/{id}', [AdminTemplates::class, 'edit']);
         $router->post('/settings/templates/{id}', [AdminTemplates::class, 'update']);
+        // Zoho Books
+        $router->get('/settings/zoho', [AdminZoho::class, 'index'])->name('admin.zoho');
+        $router->post('/settings/zoho/connect', [AdminZoho::class, 'connect']);
+        $router->get('/settings/zoho/callback', [AdminZoho::class, 'callback']);
+        $router->post('/settings/zoho/sync', [AdminZoho::class, 'sync']);
+        $router->post('/settings/zoho/disconnect', [AdminZoho::class, 'disconnect']);
     });
 });

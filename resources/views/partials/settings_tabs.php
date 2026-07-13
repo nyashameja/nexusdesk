@@ -4,6 +4,7 @@ $tabs = [
     'general'   => ['General', '/admin/settings/general'],
     'mail'      => ['Email', '/admin/settings/mail'],
     'templates' => ['Templates', '/admin/settings/templates'],
+    'zoho'      => ['Zoho Books', '/admin/settings/zoho'],
 ];
 $current = $tab ?? '';
 ?>

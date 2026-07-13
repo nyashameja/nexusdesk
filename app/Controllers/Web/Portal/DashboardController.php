@@ -9,11 +9,14 @@ use App\Core\Request;
 use App\Core\Response;
 use App\Repositories\Contracts\TicketRepositoryInterface;
 use App\Services\Auth\AuthContext;
+use App\Services\Zoho\ZohoBooksService;
 
 final class DashboardController extends Controller
 {
-    public function __construct(private readonly TicketRepositoryInterface $tickets)
-    {
+    public function __construct(
+        private readonly TicketRepositoryInterface $tickets,
+        private readonly ZohoBooksService $zoho,
+    ) {
     }
 
     public function index(Request $request): Response
@@ -29,6 +32,8 @@ final class DashboardController extends Controller
             'active'      => 'dashboard',
             'openTickets' => $openTickets,
             'recent'      => $this->tickets->search(['requester_id' => $user?->id], 1, 5),
+            'finance'     => $this->zoho->summaryForCompany($user?->companyId),
+            'financeConnected' => $this->zoho->isConnected(),
         ]);
     }
 }

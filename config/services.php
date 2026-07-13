@@ -39,6 +39,18 @@ return function (Container $container): void {
         fn (): \App\Integrations\Ai\AiProviderInterface => new \App\Integrations\Ai\NullAiProvider()
     );
 
+    // --- Zoho Books integration --------------------------------------------
+    $container->singleton(
+        \App\Integrations\Zoho\ZohoBooksClientInterface::class,
+        fn (Container $c): \App\Integrations\Zoho\ZohoBooksClientInterface =>
+            new \App\Integrations\Zoho\ZohoBooksClient(
+                require dirname(__DIR__) . '/config/zoho.php',
+                $c->get(\App\Infrastructure\Http\HttpClient::class),
+                $c->get(\App\Repositories\Contracts\ZohoRepositoryInterface::class),
+                $c->get(\App\Infrastructure\Logging\LoggerInterface::class),
+            )
+    );
+
     // --- Repositories (interface => MySQL implementation) -------------------
     $repositories = [
         \App\Repositories\Contracts\UserRepositoryInterface::class        => \App\Repositories\MySql\MySqlUserRepository::class,
@@ -54,6 +66,8 @@ return function (Container $container): void {
         \App\Repositories\Contracts\EmailTemplateRepositoryInterface::class => \App\Repositories\MySql\MySqlEmailTemplateRepository::class,
         \App\Repositories\Contracts\JobRepositoryInterface::class         => \App\Repositories\MySql\MySqlJobRepository::class,
         \App\Repositories\Contracts\SearchRepositoryInterface::class      => \App\Repositories\MySql\MySqlSearchRepository::class,
+        \App\Repositories\Contracts\ZohoRepositoryInterface::class        => \App\Repositories\MySql\MySqlZohoRepository::class,
+        \App\Repositories\Contracts\ReportRepositoryInterface::class      => \App\Repositories\MySql\MySqlReportRepository::class,
     ];
     foreach ($repositories as $interface => $implementation) {
         $container->singleton($interface, function (Container $c) use ($implementation) {

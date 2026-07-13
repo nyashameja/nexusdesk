@@ -28,5 +28,6 @@ $title = $title ?? $appName;
     </div>
 </div>
 <script src="<?= e(asset('js/app.js')) ?>"></script>
+<script src="<?= e(asset('js/charts.js')) ?>"></script>
 </body>
 </html>

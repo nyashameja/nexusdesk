@@ -7,10 +7,19 @@ $user = auth();
     <a class="btn btn-primary" href="/portal/tickets/new">+ New ticket</a>
 </div>
 
+<?php /** @var array $finance @var bool $financeConnected */ ?>
 <div class="tiles" style="margin-bottom:20px">
     <div class="tile"><div class="k">Open tickets</div><div class="v"><?= (int) $openTickets ?></div></div>
-    <div class="tile"><div class="k">Invoices due</div><div class="v tnum" style="color:var(--warning)">—</div><div class="muted" style="font-size:12px">Connect Zoho Books</div></div>
-    <div class="tile"><div class="k">Renewals (30d)</div><div class="v">—</div></div>
+    <div class="tile">
+        <div class="k">Invoices due</div>
+        <?php if ($financeConnected): ?>
+            <div class="v tnum" style="color:<?= $finance['balance'] > 0 ? 'var(--warning)' : 'var(--success)' ?>"><?= e(money($finance['balance'])) ?></div>
+            <div class="muted" style="font-size:12px"><?= (int) $finance['outstanding_count'] ?> open · <a href="/portal/invoices">view</a></div>
+        <?php else: ?>
+            <div class="v tnum">—</div><div class="muted" style="font-size:12px">Finance not connected</div>
+        <?php endif; ?>
+    </div>
+    <div class="tile"><div class="k">Total invoices</div><div class="v"><?= $financeConnected ? (int) $finance['invoice_count'] : '—' ?></div></div>
 </div>
 
 <div class="card">

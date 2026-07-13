@@ -25,14 +25,24 @@ This project is being built in **approved, reviewable stages**. See the roadmap 
 | 9 | Knowledge base — categories, articles, search, feedback, management | ✅ Delivered |
 | 10 | Email engine — SMTP, templates, DB job queue, cron worker | ✅ Delivered |
 | 11 | Notifications centre + global search | ✅ Delivered |
-| 12+ | Zoho Books, reporting/exports, full REST API, AI, backups, hardening | Planned |
+| 12 | Zoho Books integration — OAuth, cached invoices/quotes/statements, PDF | ✅ Delivered |
+| 13 | Reporting & dashboards — charts + CSV/Excel/PDF export | ✅ Delivered |
+| 14+ | Full REST API + tokens, AI touchpoints, backups/restore, hardening | Planned |
 
 ### Cron jobs (cPanel)
 
 ```
 * * * * *   php /path/nexusdesk/cron/process_jobs.php   # queue worker (email, etc.)
 */5 * * * * php /path/nexusdesk/cron/sla_monitor.php    # SLA breach detection
+0 * * * *   php /path/nexusdesk/cron/zoho_sync.php      # Zoho Books cache sync (hourly)
 ```
+
+### Zoho Books
+
+Set `ZOHO_CLIENT_ID` / `ZOHO_CLIENT_SECRET` (and `ZOHO_REGION`) in `.env`, then connect via
+**Admin → Settings → Zoho Books** (OAuth). Invoices, quotes, statements and payments are cached
+locally and shown in the client portal, scoped to each company by its Zoho contact ID. Accounting
+stays in Zoho — NexusDesk is read-only.
 
 ## Running locally
 
