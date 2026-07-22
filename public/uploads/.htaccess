@@ -1,0 +1,15 @@
+# Uploads are static assets only — never execute code from this directory.
+<IfModule mod_php.c>
+    php_flag engine off
+</IfModule>
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set Content-Disposition "attachment"
+</IfModule>
+
+# Deny direct execution of any script types, allow common media only.
+<FilesMatch "\.(php|phar|phtml|pl|py|cgi|sh|asp|aspx|js|html?)$">
+    Require all denied
+</FilesMatch>
+
+Options -Indexes -ExecCGI

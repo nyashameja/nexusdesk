@@ -16,8 +16,10 @@ return [
     'key'      => env('APP_KEY', ''),
 
     'session' => [
-        'lifetime'      => (int) env('SESSION_LIFETIME', 120),
-        'secure_cookie' => env_bool('SESSION_SECURE_COOKIE', false),
+        'lifetime' => (int) env('SESSION_LIFETIME', 120),
+        // Secure cookies default ON in production; can be overridden by the env
+        // var (e.g. a staging box on plain HTTP).
+        'secure_cookie' => env_bool('SESSION_SECURE_COOKIE', env('APP_ENV', 'production') === 'production'),
         'same_site'     => env('SESSION_SAME_SITE', 'Lax'),
         'name'          => 'paragon_hostops_session',
         'path'          => __DIR__ . '/../storage/sessions',

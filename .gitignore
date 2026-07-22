@@ -14,9 +14,10 @@
 !/storage/logs/.gitkeep
 !/storage/sessions/.gitkeep
 
-# Uploads
+# Uploads (keep the directory + its hardening rules, ignore uploaded files)
 /public/uploads/*
 !/public/uploads/.gitkeep
+!/public/uploads/.htaccess
 
 # Install lock
 /storage/installed.lock

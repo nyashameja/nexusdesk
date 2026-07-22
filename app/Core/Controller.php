@@ -35,7 +35,17 @@ abstract class Controller
     protected function back(string $fallback = '/dashboard'): Response
     {
         $referer = $_SERVER['HTTP_REFERER'] ?? null;
-        return Response::redirect(is_string($referer) && $referer !== '' ? $referer : url($fallback));
+
+        // Only honour a same-origin referer to prevent open-redirects.
+        if (is_string($referer) && $referer !== '') {
+            $appHost     = parse_url((string) config('app.url'), PHP_URL_HOST);
+            $refererHost = parse_url($referer, PHP_URL_HOST);
+            if ($refererHost !== null && $refererHost === $appHost) {
+                return Response::redirect($referer);
+            }
+        }
+
+        return Response::redirect(url($fallback));
     }
 
     protected function json(array $data, int $status = 200): Response

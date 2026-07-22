@@ -169,14 +169,15 @@ final class ReportRepository
     public function clientHealth(): array
     {
         $rows = $this->db->all(
-            "SELECT subject_id, score, band, computed_at FROM health_scores WHERE subject_type = 'account' ORDER BY (score IS NULL), score ASC"
+            "SELECT a.domain, h.score, h.band, h.computed_at
+               FROM health_scores h
+          LEFT JOIN whm_accounts a ON a.id = h.subject_id
+              WHERE h.subject_type = 'account'
+           ORDER BY (h.score IS NULL), h.score ASC"
         );
-        // Attach the account domain.
-        $out = [];
-        foreach ($rows as $r) {
-            $domain = $this->db->first('SELECT domain FROM whm_accounts WHERE id = ?', [(int) $r['subject_id']])['domain'] ?? '';
-            $out[] = [$domain, $r['score'], $r['band'], $r['computed_at']];
-        }
-        return [['Domain', 'Score', 'Band', 'Computed'], $out];
+        return [
+            ['Domain', 'Score', 'Band', 'Computed'],
+            array_map(static fn ($r) => [$r['domain'], $r['score'], $r['band'], $r['computed_at']], $rows),
+        ];
     }
 }

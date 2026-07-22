@@ -102,8 +102,21 @@ protected by the same middleware pattern.
    no fabricated malware/WAF findings), Notifications (topbar bell + list),
    Reports with CSV export (RFC 4180 + formula-injection guard, financial
    reports gated), and the Audit Logs viewer. ✅
-6. **Hardening** — security/permission/error/responsive/index reviews,
-   production config, cPanel deployment testing, docs.
+6. **Hardening** — security review (SQL/XSS/CSRF/IDOR sweep — all writes use
+   allow-lists, all dynamic SQL is int-cast or whitelisted, output is escaped,
+   `back()` is same-origin only), permission review (every route gated),
+   production config (Secure cookies default on in prod, HSTS + full CSP),
+   uploads locked to non-executable, N+1 removed from reporting, docs
+   finalised. ✅
+
+**Version 1 acceptance (§33): met.** Secure login; env-only WHM config with a
+read-only connection test; account retrieval + local caching; searchable /
+sortable / filtered accounts with detail; packages, disk, bandwidth and SSL
+shown with graceful degradation; client CRM with account linking; domains with
+renewal tracking; finance records; transparent health scores; uptime via manual
++ cron; CSV reports with role-gated financial exports; enforced RBAC; audit
+logs; responsive; cPanel-deployable; no token exposure; and no destructive WHM
+functionality.
 
 ## 5. WHM data availability with a reseller read-only token
 

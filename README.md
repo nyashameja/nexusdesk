@@ -115,21 +115,30 @@ Steps:
 ### SSL
 
 Serve the dashboard over HTTPS only. In production (`APP_ENV=production`) the
-app sends HSTS and sets `SESSION_SECURE_COOKIE=true` should be configured.
+app sends HSTS and defaults `SESSION_SECURE_COOKIE` to on (override in `.env`
+only for a plain-HTTP staging box).
 
 ## 7. Cron Jobs
 
-Scheduled synchronisation and uptime checks run via a protected web endpoint or
-CLI script (added in the monitoring phase). Secure the web endpoint with
-`CRON_SECRET`. Example cPanel cron entries:
+Synchronisation and uptime checks run via a CLI script **or** a
+secret-protected web endpoint (`public/cron.php`, guarded by `CRON_SECRET`).
+No permanent worker is required. Example cPanel cron entries:
 
 ```
-# Nightly WHM sync (CLI)
-0 2 * * * /usr/local/bin/php /home/USER/hostops/database/migrate.php >/dev/null 2>&1
+# Nightly WHM synchronisation (CLI)
+0 2 * * * /usr/local/bin/php /home/USER/hostops/bin/sync.php >/dev/null 2>&1
 
-# Uptime checks every 10 minutes (web, secret-protected) — added in Phase 5
-*/10 * * * * curl -s "https://ops.example.com/cron/uptime?token=CRON_SECRET" >/dev/null
+# Uptime checks every 10 minutes (CLI)
+*/10 * * * * /usr/local/bin/php /home/USER/hostops/bin/uptime.php >/dev/null 2>&1
+
+# Same jobs via the web endpoint (when CLI cron is unavailable):
+#   curl -s "https://ops.example.com/cron.php?job=sync&token=YOUR_CRON_SECRET"
+#   curl -s "https://ops.example.com/cron.php?job=uptime&token=YOUR_CRON_SECRET"
 ```
+
+Run synchronisation on demand from **Synchronisation → Synchronise now**, or a
+single account from its detail page. Client health scores can be recomputed
+from **Client Health → Recompute**.
 
 ## 8. Production security checklist
 
