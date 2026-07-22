@@ -60,6 +60,39 @@ class Validator
         return $this;
     }
 
+    /**
+     * @param array<int, string> $allowed
+     */
+    public function in(string $field, string $label, array $allowed): self
+    {
+        $value = (string) ($this->data[$field] ?? '');
+        if ($value !== '' && !in_array($value, $allowed, true)) {
+            $this->addError($field, "{$label} is not a valid selection.");
+        }
+        return $this;
+    }
+
+    public function date(string $field, string $label): self
+    {
+        $value = trim((string) ($this->data[$field] ?? ''));
+        if ($value !== '') {
+            $d = \DateTime::createFromFormat('Y-m-d', $value);
+            if ($d === false || $d->format('Y-m-d') !== $value) {
+                $this->addError($field, "{$label} must be a valid date (YYYY-MM-DD).");
+            }
+        }
+        return $this;
+    }
+
+    public function numeric(string $field, string $label): self
+    {
+        $value = trim((string) ($this->data[$field] ?? ''));
+        if ($value !== '' && !is_numeric($value)) {
+            $this->addError($field, "{$label} must be a number.");
+        }
+        return $this;
+    }
+
     public function addError(string $field, string $message): void
     {
         $this->errors[$field][] = $message;

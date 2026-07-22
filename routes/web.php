@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 use ParagonHostOps\Controllers\AccountsController;
 use ParagonHostOps\Controllers\AuthController;
+use ParagonHostOps\Controllers\ClientsController;
 use ParagonHostOps\Controllers\DashboardController;
+use ParagonHostOps\Controllers\DomainsController;
 use ParagonHostOps\Controllers\SettingsController;
+use ParagonHostOps\Controllers\SslController;
 use ParagonHostOps\Controllers\SyncController;
 use ParagonHostOps\Core\Router;
 use ParagonHostOps\Middleware\AuthMiddleware;
@@ -33,6 +36,28 @@ return static function (Router $router): void {
     $router->get('/accounts', [AccountsController::class, 'index'], [AuthMiddleware::class, 'perm:accounts.view']);
     $router->get('/accounts/{id}', [AccountsController::class, 'show'], [AuthMiddleware::class, 'perm:accounts.view']);
     $router->post('/accounts/{id}/refresh', [AccountsController::class, 'refresh'], [VerifyCsrfMiddleware::class, AuthMiddleware::class, 'perm:sync.run']);
+
+    // --- Clients (CRM) ---
+    $router->get('/clients', [ClientsController::class, 'index'], [AuthMiddleware::class, 'perm:clients.view']);
+    $router->get('/clients/create', [ClientsController::class, 'create'], [AuthMiddleware::class, 'perm:clients.manage']);
+    $router->post('/clients', [ClientsController::class, 'store'], [VerifyCsrfMiddleware::class, AuthMiddleware::class, 'perm:clients.manage']);
+    $router->get('/clients/{id}/edit', [ClientsController::class, 'edit'], [AuthMiddleware::class, 'perm:clients.manage']);
+    $router->add('PUT', '/clients/{id}', [ClientsController::class, 'update'], [VerifyCsrfMiddleware::class, AuthMiddleware::class, 'perm:clients.manage']);
+    $router->post('/clients/{id}/notes', [ClientsController::class, 'addNote'], [VerifyCsrfMiddleware::class, AuthMiddleware::class, 'perm:clients.manage']);
+    $router->post('/clients/{id}/link-account', [ClientsController::class, 'linkAccount'], [VerifyCsrfMiddleware::class, AuthMiddleware::class, 'perm:clients.manage']);
+    $router->add('DELETE', '/clients/{id}/accounts/{accountId}/unlink', [ClientsController::class, 'unlinkAccount'], [VerifyCsrfMiddleware::class, AuthMiddleware::class, 'perm:clients.manage']);
+    $router->get('/clients/{id}', [ClientsController::class, 'show'], [AuthMiddleware::class, 'perm:clients.view']);
+
+    // --- Domains (local registry) ---
+    $router->get('/domains', [DomainsController::class, 'index'], [AuthMiddleware::class, 'perm:domains.view']);
+    $router->get('/domains/create', [DomainsController::class, 'create'], [AuthMiddleware::class, 'perm:domains.manage']);
+    $router->post('/domains', [DomainsController::class, 'store'], [VerifyCsrfMiddleware::class, AuthMiddleware::class, 'perm:domains.manage']);
+    $router->get('/domains/{id}/edit', [DomainsController::class, 'edit'], [AuthMiddleware::class, 'perm:domains.manage']);
+    $router->add('PUT', '/domains/{id}', [DomainsController::class, 'update'], [VerifyCsrfMiddleware::class, AuthMiddleware::class, 'perm:domains.manage']);
+    $router->get('/domains/{id}', [DomainsController::class, 'show'], [AuthMiddleware::class, 'perm:domains.view']);
+
+    // --- SSL Centre (read-only) ---
+    $router->get('/ssl', [SslController::class, 'index'], [AuthMiddleware::class, 'perm:ssl.view']);
 
     // --- Synchronisation (read-only) ---
     $router->get('/sync', [SyncController::class, 'index'], [AuthMiddleware::class, 'perm:sync.view']);

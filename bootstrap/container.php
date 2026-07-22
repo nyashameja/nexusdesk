@@ -16,6 +16,8 @@ use ParagonHostOps\Middleware\VerifyCsrfMiddleware;
 use ParagonHostOps\Repositories\AccountRepository;
 use ParagonHostOps\Repositories\AuditLogRepository;
 use ParagonHostOps\Repositories\CapabilityRepository;
+use ParagonHostOps\Repositories\ClientRepository;
+use ParagonHostOps\Repositories\DomainRepository;
 use ParagonHostOps\Repositories\LoginAttemptRepository;
 use ParagonHostOps\Repositories\PackageRepository;
 use ParagonHostOps\Repositories\ServerRepository;
@@ -82,6 +84,8 @@ $container->bind(LoginAttemptRepository::class, static fn (Container $c): LoginA
 $container->bind(AuditLogRepository::class, static fn (Container $c): AuditLogRepository => new AuditLogRepository($c->get(Database::class)));
 $container->bind(SettingsRepository::class, static fn (Container $c): SettingsRepository => new SettingsRepository($c->get(Database::class)));
 $container->bind(AccountRepository::class, static fn (Container $c): AccountRepository => new AccountRepository($c->get(Database::class)));
+$container->bind(ClientRepository::class, static fn (Container $c): ClientRepository => new ClientRepository($c->get(Database::class)));
+$container->bind(DomainRepository::class, static fn (Container $c): DomainRepository => new DomainRepository($c->get(Database::class)));
 $container->bind(ServerRepository::class, static fn (Container $c): ServerRepository => new ServerRepository($c->get(Database::class)));
 $container->bind(PackageRepository::class, static fn (Container $c): PackageRepository => new PackageRepository($c->get(Database::class)));
 $container->bind(SslRepository::class, static fn (Container $c): SslRepository => new SslRepository($c->get(Database::class)));

@@ -4,12 +4,18 @@ declare(strict_types=1);
 
 use ParagonHostOps\Controllers\AccountsController;
 use ParagonHostOps\Controllers\AuthController;
+use ParagonHostOps\Controllers\ClientsController;
 use ParagonHostOps\Controllers\DashboardController;
+use ParagonHostOps\Controllers\DomainsController;
 use ParagonHostOps\Controllers\SettingsController;
+use ParagonHostOps\Controllers\SslController;
 use ParagonHostOps\Controllers\SyncController;
 use ParagonHostOps\Core\Container;
 use ParagonHostOps\Repositories\AccountRepository;
 use ParagonHostOps\Repositories\CapabilityRepository;
+use ParagonHostOps\Repositories\ClientRepository;
+use ParagonHostOps\Repositories\DomainRepository;
+use ParagonHostOps\Repositories\SslRepository;
 use ParagonHostOps\Repositories\SyncRepository;
 use ParagonHostOps\Services\AuditLogger;
 use ParagonHostOps\Services\Auth;
@@ -53,4 +59,19 @@ $container->bind(SyncController::class, static fn (Container $c): SyncController
     $c->get(CapabilityRepository::class),
     $c->get(WhmApiClient::class),
     $c->get(AuditLogger::class),
+));
+
+$container->bind(ClientsController::class, static fn (Container $c): ClientsController => new ClientsController(
+    $c->get(ClientRepository::class),
+    $c->get(AuditLogger::class),
+    $c->get(Auth::class),
+));
+
+$container->bind(DomainsController::class, static fn (Container $c): DomainsController => new DomainsController(
+    $c->get(DomainRepository::class),
+    $c->get(AuditLogger::class),
+));
+
+$container->bind(SslController::class, static fn (Container $c): SslController => new SslController(
+    $c->get(SslRepository::class),
 ));

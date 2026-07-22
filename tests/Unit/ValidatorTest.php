@@ -42,4 +42,28 @@ final class ValidatorTest extends TestCase
         $v = (new Validator(['name' => str_repeat('a', 20)]))->max('name', 'Name', 10);
         $this->assertTrue($v->fails());
     }
+
+    public function test_in_rule_rejects_values_outside_the_allow_list(): void
+    {
+        $allowed = ['individual', 'company'];
+        $this->assertTrue((new Validator(['type' => 'robot']))->in('type', 'Type', $allowed)->fails());
+        $this->assertTrue((new Validator(['type' => 'company']))->in('type', 'Type', $allowed)->passes());
+        // Empty is allowed (optional); required() guards presence separately.
+        $this->assertTrue((new Validator(['type' => '']))->in('type', 'Type', $allowed)->passes());
+    }
+
+    public function test_date_rule_validates_iso_format(): void
+    {
+        $this->assertTrue((new Validator(['d' => '2026-07-22']))->date('d', 'Date')->passes());
+        $this->assertTrue((new Validator(['d' => '22/07/2026']))->date('d', 'Date')->fails());
+        $this->assertTrue((new Validator(['d' => '2026-13-01']))->date('d', 'Date')->fails());
+        $this->assertTrue((new Validator(['d' => '']))->date('d', 'Date')->passes());
+    }
+
+    public function test_numeric_rule(): void
+    {
+        $this->assertTrue((new Validator(['n' => '12.50']))->numeric('n', 'N')->passes());
+        $this->assertTrue((new Validator(['n' => 'abc']))->numeric('n', 'N')->fails());
+        $this->assertTrue((new Validator(['n' => '']))->numeric('n', 'N')->passes());
+    }
 }

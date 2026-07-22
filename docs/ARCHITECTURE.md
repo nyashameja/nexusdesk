@@ -91,8 +91,10 @@ protected by the same middleware pattern.
    attention list, and the full accounts table (search + 7 filters + sortable
    columns + pagination) plus the read-only account-detail screen with a
    "refresh account data" re-sync. ✅
-4. **Business modules** — CRM, domains, SSL centre, email summary, WordPress
-   registry, finance, health score.
+4. **Business modules** — Client CRM (create/edit, account linking, notes,
+   financial roll-up), Domain registry (expiry alerts 90/60/30/14/7), and the
+   SSL Centre (read-only monitoring) are done. Email summary, WordPress
+   registry, finance dashboard and health score are in progress.
 5. **Monitoring & reporting** — uptime, security centre, notifications,
    reports, CSV export, cron endpoints.
 6. **Hardening** — security/permission/error/responsive/index reviews,
