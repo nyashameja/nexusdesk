@@ -82,8 +82,10 @@ protected by the same middleware pattern.
 1. **Foundation** — structure, container, router, auth, RBAC, CSRF, sessions,
    audit logging, schema, admin setup, base layout. ✅
 2. **WHM integration** — client, exceptions, connection test, capability
-   checker, and the read-only function set + sync service. ✅ (client/test/
-   capability done; sync service is the next module)
+   checker, normalizer, and the read-only sync service (accounts, disk,
+   bandwidth, SSL, packages) with run history, advisory locking, CLI runner
+   (`bin/sync.php`) and a secret-protected web cron endpoint
+   (`public/cron.php`). ✅
 3. **Hosting dashboard** — executive dashboard, accounts table + detail,
    charts, filters/sort/pagination.
 4. **Business modules** — CRM, domains, SSL centre, email summary, WordPress

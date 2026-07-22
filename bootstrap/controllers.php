@@ -6,13 +6,17 @@ use ParagonHostOps\Controllers\AccountsController;
 use ParagonHostOps\Controllers\AuthController;
 use ParagonHostOps\Controllers\DashboardController;
 use ParagonHostOps\Controllers\SettingsController;
+use ParagonHostOps\Controllers\SyncController;
 use ParagonHostOps\Core\Container;
 use ParagonHostOps\Core\Database;
 use ParagonHostOps\Repositories\AccountRepository;
+use ParagonHostOps\Repositories\CapabilityRepository;
+use ParagonHostOps\Repositories\SyncRepository;
 use ParagonHostOps\Services\AuditLogger;
 use ParagonHostOps\Services\Auth;
 use ParagonHostOps\Services\Whm\CapabilityChecker;
 use ParagonHostOps\Services\Whm\ConnectionTester;
+use ParagonHostOps\Services\Whm\SyncService;
 use ParagonHostOps\Services\Whm\WhmApiClient;
 
 /**
@@ -40,4 +44,12 @@ $container->bind(SettingsController::class, static fn (Container $c): SettingsCo
 
 $container->bind(AccountsController::class, static fn (Container $c): AccountsController => new AccountsController(
     $c->get(Database::class),
+));
+
+$container->bind(SyncController::class, static fn (Container $c): SyncController => new SyncController(
+    $c->get(SyncService::class),
+    $c->get(SyncRepository::class),
+    $c->get(CapabilityRepository::class),
+    $c->get(WhmApiClient::class),
+    $c->get(AuditLogger::class),
 ));

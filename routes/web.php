@@ -6,6 +6,7 @@ use ParagonHostOps\Controllers\AccountsController;
 use ParagonHostOps\Controllers\AuthController;
 use ParagonHostOps\Controllers\DashboardController;
 use ParagonHostOps\Controllers\SettingsController;
+use ParagonHostOps\Controllers\SyncController;
 use ParagonHostOps\Core\Router;
 use ParagonHostOps\Middleware\AuthMiddleware;
 use ParagonHostOps\Middleware\GuestMiddleware;
@@ -30,6 +31,11 @@ return static function (Router $router): void {
 
     // --- Hosting accounts (cached, read-only) ---
     $router->get('/accounts', [AccountsController::class, 'index'], [AuthMiddleware::class, 'perm:accounts.view']);
+
+    // --- Synchronisation (read-only) ---
+    $router->get('/sync', [SyncController::class, 'index'], [AuthMiddleware::class, 'perm:sync.view']);
+    $router->get('/sync/history', [SyncController::class, 'history'], [AuthMiddleware::class, 'perm:sync.view']);
+    $router->post('/sync/run', [SyncController::class, 'run'], [VerifyCsrfMiddleware::class, AuthMiddleware::class, 'perm:sync.run']);
 
     // --- Settings ---
     $router->get('/settings/whm', [SettingsController::class, 'whm'], [AuthMiddleware::class, 'perm:settings.view']);
