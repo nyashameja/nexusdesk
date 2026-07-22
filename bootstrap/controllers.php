@@ -7,26 +7,37 @@ use ParagonHostOps\Controllers\AuthController;
 use ParagonHostOps\Controllers\ClientsController;
 use ParagonHostOps\Controllers\DashboardController;
 use ParagonHostOps\Controllers\DomainsController;
+use ParagonHostOps\Controllers\AuditController;
 use ParagonHostOps\Controllers\EmailController;
 use ParagonHostOps\Controllers\FinanceController;
 use ParagonHostOps\Controllers\HealthController;
+use ParagonHostOps\Controllers\NotificationsController;
+use ParagonHostOps\Controllers\ReportsController;
+use ParagonHostOps\Controllers\SecurityController;
 use ParagonHostOps\Controllers\SettingsController;
 use ParagonHostOps\Controllers\SslController;
 use ParagonHostOps\Controllers\SyncController;
+use ParagonHostOps\Controllers\UptimeController;
 use ParagonHostOps\Controllers\WordpressController;
 use ParagonHostOps\Core\Container;
 use ParagonHostOps\Repositories\AccountRepository;
+use ParagonHostOps\Repositories\AuditLogRepository;
 use ParagonHostOps\Repositories\CapabilityRepository;
 use ParagonHostOps\Repositories\ClientRepository;
 use ParagonHostOps\Repositories\DomainRepository;
 use ParagonHostOps\Repositories\FinancialRepository;
 use ParagonHostOps\Repositories\HealthRepository;
+use ParagonHostOps\Repositories\NotificationRepository;
+use ParagonHostOps\Repositories\ReportRepository;
+use ParagonHostOps\Repositories\SecurityRepository;
 use ParagonHostOps\Repositories\SslRepository;
 use ParagonHostOps\Repositories\SyncRepository;
+use ParagonHostOps\Repositories\UptimeRepository;
 use ParagonHostOps\Repositories\WordpressRepository;
 use ParagonHostOps\Services\AuditLogger;
 use ParagonHostOps\Services\Auth;
 use ParagonHostOps\Services\HealthScoreService;
+use ParagonHostOps\Services\Uptime\UptimeService;
 use ParagonHostOps\Services\Whm\CapabilityChecker;
 use ParagonHostOps\Services\Whm\ConnectionTester;
 use ParagonHostOps\Services\Whm\SyncService;
@@ -104,4 +115,30 @@ $container->bind(HealthController::class, static fn (Container $c): HealthContro
     $c->get(HealthRepository::class),
     $c->get(HealthScoreService::class),
     $c->get(AuditLogger::class),
+));
+
+$container->bind(UptimeController::class, static fn (Container $c): UptimeController => new UptimeController(
+    $c->get(UptimeRepository::class),
+    $c->get(UptimeService::class),
+    $c->get(DomainRepository::class),
+    $c->get(AuditLogger::class),
+));
+
+$container->bind(SecurityController::class, static fn (Container $c): SecurityController => new SecurityController(
+    $c->get(SecurityRepository::class),
+    $c->get(AuditLogRepository::class),
+));
+
+$container->bind(NotificationsController::class, static fn (Container $c): NotificationsController => new NotificationsController(
+    $c->get(NotificationRepository::class),
+));
+
+$container->bind(ReportsController::class, static fn (Container $c): ReportsController => new ReportsController(
+    $c->get(ReportRepository::class),
+    $c->get(Auth::class),
+    $c->get(AuditLogger::class),
+));
+
+$container->bind(AuditController::class, static fn (Container $c): AuditController => new AuditController(
+    $c->get(AuditLogRepository::class),
 ));

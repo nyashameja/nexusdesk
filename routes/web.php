@@ -7,12 +7,17 @@ use ParagonHostOps\Controllers\AuthController;
 use ParagonHostOps\Controllers\ClientsController;
 use ParagonHostOps\Controllers\DashboardController;
 use ParagonHostOps\Controllers\DomainsController;
+use ParagonHostOps\Controllers\AuditController;
 use ParagonHostOps\Controllers\EmailController;
 use ParagonHostOps\Controllers\FinanceController;
 use ParagonHostOps\Controllers\HealthController;
+use ParagonHostOps\Controllers\NotificationsController;
+use ParagonHostOps\Controllers\ReportsController;
+use ParagonHostOps\Controllers\SecurityController;
 use ParagonHostOps\Controllers\SettingsController;
 use ParagonHostOps\Controllers\SslController;
 use ParagonHostOps\Controllers\SyncController;
+use ParagonHostOps\Controllers\UptimeController;
 use ParagonHostOps\Controllers\WordpressController;
 use ParagonHostOps\Core\Router;
 use ParagonHostOps\Middleware\AuthMiddleware;
@@ -84,6 +89,29 @@ return static function (Router $router): void {
     // --- Client health ---
     $router->get('/health', [HealthController::class, 'index'], [AuthMiddleware::class, 'perm:health.view']);
     $router->post('/health/recompute', [HealthController::class, 'recompute'], [VerifyCsrfMiddleware::class, AuthMiddleware::class, 'perm:health.view']);
+
+    // --- Uptime monitoring ---
+    $router->get('/uptime', [UptimeController::class, 'index'], [AuthMiddleware::class, 'perm:uptime.view']);
+    $router->get('/uptime/create', [UptimeController::class, 'create'], [AuthMiddleware::class, 'perm:uptime.manage']);
+    $router->post('/uptime', [UptimeController::class, 'store'], [VerifyCsrfMiddleware::class, AuthMiddleware::class, 'perm:uptime.manage']);
+    $router->post('/uptime/check-all', [UptimeController::class, 'checkAll'], [VerifyCsrfMiddleware::class, AuthMiddleware::class, 'perm:uptime.manage']);
+    $router->get('/uptime/{id}/edit', [UptimeController::class, 'edit'], [AuthMiddleware::class, 'perm:uptime.manage']);
+    $router->add('PUT', '/uptime/{id}', [UptimeController::class, 'update'], [VerifyCsrfMiddleware::class, AuthMiddleware::class, 'perm:uptime.manage']);
+    $router->post('/uptime/{id}/check', [UptimeController::class, 'check'], [VerifyCsrfMiddleware::class, AuthMiddleware::class, 'perm:uptime.manage']);
+
+    // --- Security Centre (read-only) ---
+    $router->get('/security', [SecurityController::class, 'index'], [AuthMiddleware::class, 'perm:security.view']);
+
+    // --- Reports & CSV export ---
+    $router->get('/reports', [ReportsController::class, 'index'], [AuthMiddleware::class, 'perm:reports.view']);
+    $router->get('/reports/{type}/export', [ReportsController::class, 'export'], [AuthMiddleware::class, 'perm:reports.view']);
+
+    // --- Notifications (any authenticated user) ---
+    $router->get('/notifications', [NotificationsController::class, 'index'], [AuthMiddleware::class]);
+    $router->post('/notifications/read', [NotificationsController::class, 'markAllRead'], [VerifyCsrfMiddleware::class, AuthMiddleware::class]);
+
+    // --- Audit logs ---
+    $router->get('/audit-logs', [AuditController::class, 'index'], [AuthMiddleware::class, 'perm:audit.view']);
 
     // --- Synchronisation (read-only) ---
     $router->get('/sync', [SyncController::class, 'index'], [AuthMiddleware::class, 'perm:sync.view']);

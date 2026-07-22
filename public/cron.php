@@ -14,6 +14,7 @@ declare(strict_types=1);
 
 use ParagonHostOps\Core\Config;
 use ParagonHostOps\Core\Container;
+use ParagonHostOps\Services\Uptime\UptimeService;
 use ParagonHostOps\Services\Whm\SyncService;
 
 /** @var Container $container */
@@ -43,6 +44,13 @@ switch ($job) {
             'status'  => $result->status(),
             'summary' => $result->summary(),
         ]);
+        break;
+
+    case 'uptime':
+        /** @var UptimeService $uptime */
+        $uptime  = $container->get(UptimeService::class);
+        $summary = $uptime->checkAll();
+        echo json_encode(['job' => 'uptime'] + $summary);
         break;
 
     default:

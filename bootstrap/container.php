@@ -21,6 +21,10 @@ use ParagonHostOps\Repositories\DomainRepository;
 use ParagonHostOps\Repositories\FinancialRepository;
 use ParagonHostOps\Repositories\HealthRepository;
 use ParagonHostOps\Repositories\LoginAttemptRepository;
+use ParagonHostOps\Repositories\NotificationRepository;
+use ParagonHostOps\Repositories\ReportRepository;
+use ParagonHostOps\Repositories\SecurityRepository;
+use ParagonHostOps\Repositories\UptimeRepository;
 use ParagonHostOps\Repositories\WordpressRepository;
 use ParagonHostOps\Repositories\PackageRepository;
 use ParagonHostOps\Repositories\ServerRepository;
@@ -31,6 +35,8 @@ use ParagonHostOps\Repositories\UserRepository;
 use ParagonHostOps\Services\AuditLogger;
 use ParagonHostOps\Services\Auth;
 use ParagonHostOps\Services\HealthScoreService;
+use ParagonHostOps\Services\Uptime\UptimeChecker;
+use ParagonHostOps\Services\Uptime\UptimeService;
 use ParagonHostOps\Services\Whm\CapabilityChecker;
 use ParagonHostOps\Services\Whm\ConnectionTester;
 use ParagonHostOps\Services\Whm\CurlTransport;
@@ -93,6 +99,10 @@ $container->bind(DomainRepository::class, static fn (Container $c): DomainReposi
 $container->bind(FinancialRepository::class, static fn (Container $c): FinancialRepository => new FinancialRepository($c->get(Database::class)));
 $container->bind(WordpressRepository::class, static fn (Container $c): WordpressRepository => new WordpressRepository($c->get(Database::class)));
 $container->bind(HealthRepository::class, static fn (Container $c): HealthRepository => new HealthRepository($c->get(Database::class)));
+$container->bind(UptimeRepository::class, static fn (Container $c): UptimeRepository => new UptimeRepository($c->get(Database::class)));
+$container->bind(NotificationRepository::class, static fn (Container $c): NotificationRepository => new NotificationRepository($c->get(Database::class)));
+$container->bind(SecurityRepository::class, static fn (Container $c): SecurityRepository => new SecurityRepository($c->get(Database::class)));
+$container->bind(ReportRepository::class, static fn (Container $c): ReportRepository => new ReportRepository($c->get(Database::class)));
 $container->bind(ServerRepository::class, static fn (Container $c): ServerRepository => new ServerRepository($c->get(Database::class)));
 $container->bind(PackageRepository::class, static fn (Container $c): PackageRepository => new PackageRepository($c->get(Database::class)));
 $container->bind(SslRepository::class, static fn (Container $c): SslRepository => new SslRepository($c->get(Database::class)));
@@ -115,6 +125,13 @@ $container->bind(AuditLogger::class, static function (Container $c): AuditLogger
 });
 
 $container->bind(HealthScoreService::class, static fn (): HealthScoreService => new HealthScoreService());
+
+$container->bind(UptimeChecker::class, static fn (): UptimeChecker => new UptimeChecker());
+$container->bind(UptimeService::class, static fn (Container $c): UptimeService => new UptimeService(
+    $c->get(UptimeRepository::class),
+    $c->get(UptimeChecker::class),
+    $c->get(NotificationRepository::class),
+));
 
 // --- WHM services ---
 $container->bind(WhmTransportInterface::class, static function () use ($root): WhmTransportInterface {

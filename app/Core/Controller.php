@@ -18,9 +18,10 @@ abstract class Controller
 
         // Make common data available to every view.
         $data += [
-            'auth'    => app(Auth::class),
-            'appName' => config('app.name'),
-            'tagline' => config('app.tagline'),
+            'auth'        => app(Auth::class),
+            'appName'     => config('app.name'),
+            'tagline'     => config('app.tagline'),
+            'notifUnread' => $this->unreadNotifications(),
         ];
 
         return Response::html($renderer->render($view, $data), $status);
@@ -45,5 +46,18 @@ abstract class Controller
     protected function session(): Session
     {
         return app(Session::class);
+    }
+
+    /**
+     * Unread notification count for the top bar. Fails safe to 0 if the
+     * database is unavailable (e.g. on an error page).
+     */
+    private function unreadNotifications(): int
+    {
+        try {
+            return app(\ParagonHostOps\Repositories\NotificationRepository::class)->unreadCount();
+        } catch (\Throwable) {
+            return 0;
+        }
     }
 }

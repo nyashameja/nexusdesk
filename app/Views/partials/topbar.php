@@ -13,6 +13,13 @@ $initials = strtoupper(substr($name, 0, 1) . (str_contains($name, ' ') ? substr(
 
     <div class="pg-spacer"></div>
 
+    <a href="<?= e(url('/notifications')) ?>" class="pg-btn ghost" title="Notifications" style="position:relative;padding:8px 11px">
+        🔔
+        <?php if (!empty($notifUnread)): ?>
+            <span style="position:absolute;top:2px;right:2px;background:var(--pg-danger);color:#fff;border-radius:10px;font-size:10px;font-weight:700;padding:1px 5px;line-height:1.4"><?= (int) $notifUnread > 99 ? '99+' : (int) $notifUnread ?></span>
+        <?php endif; ?>
+    </a>
+
     <div class="pg-user">
         <div class="text-right" style="line-height:1.25">
             <div style="font-weight:600;color:var(--pg-text)"><?= e($name) ?></div>

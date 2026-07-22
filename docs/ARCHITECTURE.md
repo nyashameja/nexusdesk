@@ -97,8 +97,11 @@ protected by the same middleware pattern.
    registry (manual), Finance dashboard + subscriptions (MRR/ARR, revenue by
    category, payment status, renewals), and the transparent Client Health
    Score (weighted, factor-by-factor, "incomplete" when data is sparse). ✅
-5. **Monitoring & reporting** — uptime, security centre, notifications,
-   reports, CSV export, cron endpoints.
+5. **Monitoring & reporting** — Uptime monitoring (manual + CLI/web cron, with
+   offline notifications), Security Centre (login/lock/WHM/SSL/uptime signals,
+   no fabricated malware/WAF findings), Notifications (topbar bell + list),
+   Reports with CSV export (RFC 4180 + formula-injection guard, financial
+   reports gated), and the Audit Logs viewer. ✅
 6. **Hardening** — security/permission/error/responsive/index reviews,
    production config, cPanel deployment testing, docs.
 
