@@ -161,7 +161,31 @@ from **Client Health → Recompute**.
 - **Run synchronisation manually:** from **Settings → Synchronisation** (added
   in the sync phase) or the CLI sync command.
 
-## 10. WHM data availability (reseller read-only token)
+## 10. Troubleshooting HTTP 500
+
+A 500 after deploying is almost always environmental. Work through these in
+order — the app itself surfaces the first two as a plain message, not a blank
+page:
+
+1. **Dependencies not installed.** `vendor/` is intentionally git-ignored, so a
+   git-based deploy does **not** include it. Run:
+   `composer install --no-dev --optimize-autoloader` from the app root.
+2. **`storage/` not writable.** The web-server user needs write access to
+   `storage/logs`, `storage/sessions`, `storage/cache` (e.g. `chmod -R 0770 storage`).
+3. **PHP version.** Requires PHP **8.2+**. On cPanel set it in *MultiPHP Manager*.
+   An older version fails to parse enums/typed code and 500s.
+4. **`.htaccess` not applied / mod_rewrite off.** Ensure `AllowOverride All`
+   (or the host equivalent) and that `mod_rewrite` is enabled. If the document
+   root can't point to `/public`, use the root `.htaccess` fallback (see §6).
+5. **Read the real error.** Temporarily set `APP_DEBUG=true` in `.env` to see the
+   message on-screen, and check `storage/logs/app-YYYY-MM-DD.log`,
+   `storage/logs/fatal-YYYY-MM-DD.log`, and the cPanel *Errors* / Apache error
+   log. Set `APP_DEBUG=false` again once resolved.
+6. **Database.** If login (a page needing no DB) works but other pages 500, the
+   database is misconfigured or migrations haven't run:
+   `php database/migrate.php --seed`.
+
+## 11. WHM data availability (reseller read-only token)
 
 Some data may be limited for a reseller/read-only token. The dashboard degrades
 gracefully ("Unavailable with current WHM permissions") rather than crashing.

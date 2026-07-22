@@ -60,11 +60,13 @@ final class FinancialRepository
                 AND YEAR(next_billing_at) = YEAR(UTC_DATE()) AND MONTH(next_billing_at) = MONTH(UTC_DATE())"
         )['c'] ?? 0);
 
+        // Renewals falling in the *next* calendar month. Compared via a
+        // year*12+month ordinal to avoid any INTERVAL parsing ambiguity.
         $renewalsNext = (int) ($this->db->first(
             "SELECT COUNT(*) AS c FROM subscriptions
               WHERE deleted_at IS NULL AND next_billing_at IS NOT NULL
-                AND next_billing_at BETWEEN (UTC_DATE() + INTERVAL 1 MONTH - INTERVAL DAYOFMONTH(UTC_DATE())-1 DAY)
-                                        AND (UTC_DATE() + INTERVAL 2 MONTH)"
+                AND (YEAR(next_billing_at) * 12 + MONTH(next_billing_at))
+                  = (YEAR(UTC_DATE()) * 12 + MONTH(UTC_DATE()) + 1)"
         )['c'] ?? 0);
 
         $activeClients = (int) ($this->db->first(
