@@ -1,0 +1,8 @@
+{
+    "metadata": { "version": 1, "result": 1, "reason": "OK", "command": "listsuspended" },
+    "data": {
+        "suspended": [
+            { "user": "paragon3", "reason": "Non-payment", "time": "Mon Jul 14 09:12:00 2025" }
+        ]
+    }
+}

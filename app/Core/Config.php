@@ -2,32 +2,40 @@
 
 declare(strict_types=1);
 
-namespace App\Core;
+namespace ParagonHostOps\Core;
 
 /**
- * Loads config/*.php files and exposes dotted access: config('app.name').
+ * Configuration repository.
+ *
+ * Loads the PHP files in /config once and exposes dot-notation access, e.g.
+ * Config::get('whm.host'). Values are read-only at runtime.
  */
 final class Config
 {
-    /** @var array<string,mixed> */
-    private array $items = [];
+    /** @var array<string, mixed> */
+    private static array $items = [];
 
-    public function __construct(private readonly string $configPath)
-    {
-    }
+    private static bool $loaded = false;
 
-    public function loadAll(): void
+    public static function load(string $configDir): void
     {
-        foreach (glob($this->configPath . '/*.php') ?: [] as $file) {
-            $key = basename($file, '.php');
-            $this->items[$key] = require $file;
+        foreach (glob(rtrim($configDir, '/') . '/*.php') ?: [] as $file) {
+            $name = basename($file, '.php');
+            self::$items[$name] = require $file;
         }
+
+        self::$loaded = true;
     }
 
-    public function get(string $key, mixed $default = null): mixed
+    public static function get(string $key, mixed $default = null): mixed
     {
+        if (!self::$loaded) {
+            return $default;
+        }
+
         $segments = explode('.', $key);
-        $value = $this->items;
+        $value    = self::$items;
+
         foreach ($segments as $segment) {
             if (is_array($value) && array_key_exists($segment, $value)) {
                 $value = $value[$segment];
@@ -35,22 +43,18 @@ final class Config
                 return $default;
             }
         }
+
         return $value;
     }
 
-    public function set(string $key, mixed $value): void
+    /**
+     * Test-support helper: inject configuration without loading files.
+     *
+     * @param array<string, mixed> $items
+     */
+    public static function set(array $items): void
     {
-        $segments = explode('.', $key);
-        $ref = &$this->items;
-        foreach ($segments as $i => $segment) {
-            if ($i === count($segments) - 1) {
-                $ref[$segment] = $value;
-            } else {
-                if (!isset($ref[$segment]) || !is_array($ref[$segment])) {
-                    $ref[$segment] = [];
-                }
-                $ref = &$ref[$segment];
-            }
-        }
+        self::$items = array_merge(self::$items, $items);
+        self::$loaded = true;
     }
 }

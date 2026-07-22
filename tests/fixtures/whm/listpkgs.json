@@ -1,0 +1,28 @@
+{
+    "metadata": {
+        "version": 1,
+        "result": 1,
+        "reason": "Packages Obtained",
+        "command": "listpkgs"
+    },
+    "data": {
+        "pkg": [
+            {
+                "name": "Starter-2GB",
+                "QUOTA": "2048",
+                "BWLIMIT": "51200",
+                "MAXADDON": "1",
+                "MAXSUB": "5",
+                "MAXPOP": "25"
+            },
+            {
+                "name": "Business-10GB",
+                "QUOTA": "10240",
+                "BWLIMIT": "512000",
+                "MAXADDON": "10",
+                "MAXSUB": "unlimited",
+                "MAXPOP": "unlimited"
+            }
+        ]
+    }
+}

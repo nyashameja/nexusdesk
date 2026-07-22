@@ -2,31 +2,36 @@
 
 declare(strict_types=1);
 
-namespace App\Middleware;
+namespace ParagonHostOps\Middleware;
 
-use App\Core\HttpException;
-use App\Core\Middleware\MiddlewareInterface;
-use App\Core\Request;
-use App\Core\Response;
-use App\Support\Security\Csrf;
-use Closure;
+use ParagonHostOps\Core\Csrf;
+use ParagonHostOps\Core\Request;
+use ParagonHostOps\Core\Response;
+use ParagonHostOps\Core\Exceptions\HttpException;
 
 /**
- * Verifies the CSRF token on state-changing web requests. Reads the token from
- * the `_token` field or the `X-CSRF-Token` header (for AJAX).
+ * Validates the CSRF token on all state-changing (POST/PUT/PATCH/DELETE)
+ * requests. The token may arrive as the _csrf form field or the
+ * X-CSRF-Token header.
  */
 final class VerifyCsrfMiddleware implements MiddlewareInterface
 {
-    private const READ_METHODS = ['GET', 'HEAD', 'OPTIONS'];
-
-    public function handle(Request $request, Closure $next): Response
+    public function handle(Request $request, array $params): ?Response
     {
-        if (!in_array($request->method(), self::READ_METHODS, true)) {
-            $token = $request->input('_token') ?? $request->header('X-CSRF-Token');
-            if (!Csrf::verify(is_string($token) ? $token : null)) {
-                throw HttpException::tokenMismatch();
-            }
+        if (in_array($request->method(), ['GET', 'HEAD', 'OPTIONS'], true)) {
+            return null;
         }
-        return $next($request);
+
+        $token = (string) ($request->input('_csrf', '') ?: ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? ''));
+
+        if (Csrf::validate($token)) {
+            return null;
+        }
+
+        if ($request->wantsJson()) {
+            return Response::json(['error' => 'Invalid or expired CSRF token.'], 419);
+        }
+
+        throw new HttpException(419);
     }
 }

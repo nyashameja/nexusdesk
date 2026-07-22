@@ -1,0 +1,11 @@
+{
+    "metadata": { "version": 1, "result": 1, "reason": "OK", "command": "servicestatus" },
+    "data": {
+        "service": [
+            { "name": "httpd", "running": 1, "monitored": 1 },
+            { "name": "mysql", "running": 1, "monitored": 1 },
+            { "name": "exim", "running": 1, "monitored": 1 },
+            { "name": "dovecot", "running": 1, "monitored": 1 }
+        ]
+    }
+}

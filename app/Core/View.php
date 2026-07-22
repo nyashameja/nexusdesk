@@ -2,51 +2,56 @@
 
 declare(strict_types=1);
 
-namespace App\Core;
+namespace ParagonHostOps\Core;
 
 use RuntimeException;
 
 /**
- * Plain-PHP template renderer with layout support and escaping helpers.
- * Views live in resources/views and are rendered inside an optional layout.
+ * Plain-PHP view renderer with a simple layout mechanism.
+ *
+ * Views live in app/Views. A view may declare a layout by calling
+ * $this->layout('layouts.app'); the rendered view content is then injected
+ * into the layout as $content.
  */
 final class View
 {
-    private static string $viewPath = '';
-    /** @var array<string,mixed> Data shared with every view. */
-    private static array $shared = [];
+    private ?string $layout = null;
 
-    public static function setViewPath(string $path): void
+    /** @var array<string, string> */
+    private array $sections = [];
+
+    public function __construct(private string $viewPath)
     {
-        self::$viewPath = rtrim($path, '/');
     }
 
-    public static function share(string $key, mixed $value): void
+    /**
+     * @param array<string, mixed> $data
+     */
+    public function render(string $view, array $data = []): string
     {
-        self::$shared[$key] = $value;
-    }
+        $content = $this->renderView($view, $data);
 
-    /** @param array<string,mixed> $data */
-    public static function make(string $template, array $data = [], ?string $layout = 'layouts/app'): Response
-    {
-        $content = self::render($template, $data);
-
-        if ($layout !== null) {
-            $content = self::render($layout, array_merge($data, ['content' => $content]));
+        if ($this->layout !== null) {
+            $layout = $this->layout;
+            $this->layout = null;
+            $data['content'] = $content;
+            return $this->renderView($layout, $data);
         }
 
-        return new Response($content);
+        return $content;
     }
 
-    /** @param array<string,mixed> $data */
-    public static function render(string $template, array $data = []): string
+    /**
+     * @param array<string, mixed> $data
+     */
+    private function renderView(string $view, array $data): string
     {
-        $file = self::$viewPath . '/' . str_replace('.', '/', $template) . '.php';
+        $file = $this->resolve($view);
+
         if (!is_file($file)) {
-            throw new RuntimeException("View [$template] not found at $file.");
+            throw new RuntimeException("View not found: {$view}");
         }
 
-        $data = array_merge(self::$shared, $data);
         extract($data, EXTR_SKIP);
 
         ob_start();
@@ -54,9 +59,17 @@ final class View
         return (string) ob_get_clean();
     }
 
-    /** Escape for HTML output. */
-    public static function e(mixed $value): string
+    private function resolve(string $view): string
     {
-        return htmlspecialchars((string) ($value ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        $relative = str_replace('.', '/', $view) . '.php';
+        return rtrim($this->viewPath, '/') . '/' . $relative;
+    }
+
+    /**
+     * Called from within a view to select its layout.
+     */
+    public function layout(string $layout): void
+    {
+        $this->layout = $layout;
     }
 }

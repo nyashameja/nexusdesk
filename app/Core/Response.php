@@ -2,51 +2,58 @@
 
 declare(strict_types=1);
 
-namespace App\Core;
+namespace ParagonHostOps\Core;
 
 /**
- * HTTP response value object. Headers are buffered and flushed by send().
+ * HTTP response abstraction. Collects status, headers and body so the front
+ * controller can send everything in one place.
  */
-class Response
+final class Response
 {
-    /** @param array<string,string> $headers */
+    /** @var array<string, string> */
+    private array $headers = [];
+
     public function __construct(
-        protected string $body = '',
-        protected int $status = 200,
-        protected array $headers = [],
+        private string $body = '',
+        private int $status = 200,
     ) {
     }
 
-    public function setStatus(int $status): static
+    public function setStatus(int $status): self
     {
         $this->status = $status;
         return $this;
     }
 
-    public function status(): int
-    {
-        return $this->status;
-    }
-
-    public function header(string $name, string $value): static
+    public function header(string $name, string $value): self
     {
         $this->headers[$name] = $value;
         return $this;
     }
 
-    /** @param array<string,string> $headers */
-    public function withHeaders(array $headers): static
-    {
-        foreach ($headers as $name => $value) {
-            $this->headers[$name] = $value;
-        }
-        return $this;
-    }
-
-    public function setBody(string $body): static
+    public function setBody(string $body): self
     {
         $this->body = $body;
         return $this;
+    }
+
+    public static function html(string $html, int $status = 200): self
+    {
+        return (new self($html, $status))->header('Content-Type', 'text/html; charset=UTF-8');
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     */
+    public static function json(array $data, int $status = 200): self
+    {
+        $body = json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}';
+        return (new self($body, $status))->header('Content-Type', 'application/json; charset=UTF-8');
+    }
+
+    public static function redirect(string $location, int $status = 302): self
+    {
+        return (new self('', $status))->header('Location', $location);
     }
 
     public function send(): void
@@ -57,6 +64,7 @@ class Response
                 header("$name: $value");
             }
         }
+
         echo $this->body;
     }
 }

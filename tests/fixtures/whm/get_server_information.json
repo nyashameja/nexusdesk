@@ -1,0 +1,9 @@
+{
+    "metadata": { "version": 1, "result": 1, "reason": "OK", "command": "get_server_information" },
+    "data": {
+        "hostname": "server1.paragonhost.example",
+        "ip": "197.221.10.5",
+        "operatingsystem": "AlmaLinux 9",
+        "load_average": { "one": "0.42", "five": "0.51", "fifteen": "0.48" }
+    }
+}

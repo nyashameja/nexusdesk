@@ -1,0 +1,4 @@
+{
+    "metadata": { "version": 1, "result": 1, "reason": "OK", "command": "listaccts" },
+    "data": { "acct": [ { "user": "partial1" } ] }
+}

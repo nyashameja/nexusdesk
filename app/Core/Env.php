@@ -2,72 +2,68 @@
 
 declare(strict_types=1);
 
-namespace App\Core;
+namespace ParagonHostOps\Core;
 
 /**
- * Lightweight .env reader.
+ * Minimal .env file loader.
  *
- * If vlucas/phpdotenv is installed it is used (richer validation); otherwise
- * this parser loads KEY=VALUE pairs into a static store. Values are never
- * written to $_ENV/$_SERVER by this parser to keep secrets out of superglobals
- * that get dumped in error pages.
+ * Parses KEY=VALUE lines and populates $_ENV / putenv without any external
+ * dependency. Supports quoted values, comments and blank lines. Existing
+ * real environment variables are never overwritten.
  */
 final class Env
 {
-    /** @var array<string,string> */
-    private static array $vars = [];
-    private static bool $loaded = false;
-
     public static function load(string $path): void
     {
-        if (self::$loaded) {
-            return;
-        }
-        self::$loaded = true;
-
-        if (!is_file($path)) {
+        if (!is_readable($path)) {
             return;
         }
 
-        $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [];
+        $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        if ($lines === false) {
+            return;
+        }
+
         foreach ($lines as $line) {
             $line = trim($line);
+
             if ($line === '' || str_starts_with($line, '#')) {
                 continue;
             }
+
             if (!str_contains($line, '=')) {
                 continue;
             }
+
             [$key, $value] = explode('=', $line, 2);
-            $key = trim($key);
-            $value = trim($value);
-            // strip surrounding quotes
-            if (strlen($value) >= 2
-                && (($value[0] === '"' && str_ends_with($value, '"'))
-                    || ($value[0] === "'" && str_ends_with($value, "'")))) {
-                $value = substr($value, 1, -1);
+            $key   = trim($key);
+            $value = self::normalise(trim($value));
+
+            if ($key === '') {
+                continue;
             }
-            self::$vars[$key] = $value;
+
+            // Do not override variables already present in the real environment.
+            if (array_key_exists($key, $_ENV) || getenv($key) !== false) {
+                continue;
+            }
+
+            $_ENV[$key] = $value;
+            putenv("$key=$value");
         }
     }
 
-    public static function get(string $key, mixed $default = null): mixed
+    private static function normalise(string $value): string
     {
-        $value = self::$vars[$key] ?? getenv($key);
-        if ($value === false || $value === null) {
-            return $default;
+        // Strip surrounding matching quotes.
+        if (strlen($value) >= 2) {
+            $first = $value[0];
+            $last  = $value[strlen($value) - 1];
+            if (($first === '"' && $last === '"') || ($first === "'" && $last === "'")) {
+                return substr($value, 1, -1);
+            }
         }
-        return match (strtolower((string) $value)) {
-            'true'  => true,
-            'false' => false,
-            'null'  => null,
-            'empty' => '',
-            default => $value,
-        };
-    }
 
-    public static function has(string $key): bool
-    {
-        return isset(self::$vars[$key]) || getenv($key) !== false;
+        return $value;
     }
 }

@@ -1,0 +1,15 @@
+{
+    "metadata": {
+        "version": 1,
+        "result": 1,
+        "reason": "OK",
+        "command": "showbw"
+    },
+    "data": {
+        "acct": [
+            { "user": "paragon1", "domain": "acmecorp.co.za", "totalbytes": "6871947673", "limit": "53687091200" },
+            { "user": "paragon2", "domain": "brightmedia.org", "totalbytes": "48318382080", "limit": "53687091200" },
+            { "user": "paragon3", "domain": "delta-legal.co.za", "totalbytes": "1073741824", "limit": "53687091200" }
+        ]
+    }
+}

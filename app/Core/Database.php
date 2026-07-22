@@ -2,139 +2,97 @@
 
 declare(strict_types=1);
 
-namespace App\Core;
+namespace ParagonHostOps\Core;
 
 use PDO;
 use PDOException;
-use PDOStatement;
 use RuntimeException;
 
 /**
- * Thin PDO wrapper. Connection is lazy so non-DB routes (health, installer
- * requirements) work without a live database. Every query uses prepared
- * statements with bound parameters — the only place SQL runs in the app is a
- * repository calling through here.
+ * Thin PDO wrapper providing a shared connection and prepared-statement
+ * helpers. All queries use bound parameters — never string concatenation.
  */
 final class Database
 {
     private ?PDO $pdo = null;
 
-    /** @param array<string,mixed> $config */
-    public function __construct(private readonly array $config)
+    /**
+     * @param array<string, mixed> $config
+     */
+    public function __construct(private array $config)
     {
     }
 
     public function pdo(): PDO
     {
-        if ($this->pdo === null) {
-            $this->connect();
+        if ($this->pdo instanceof PDO) {
+            return $this->pdo;
         }
-        return $this->pdo;
-    }
 
-    private function connect(): void
-    {
-        $host = $this->config['host'] ?? 'localhost';
-        $port = $this->config['port'] ?? 3306;
-        $db   = $this->config['database'] ?? '';
-        $charset = $this->config['charset'] ?? 'utf8mb4';
+        $dsn = sprintf(
+            'mysql:host=%s;port=%d;dbname=%s;charset=%s',
+            $this->config['host'],
+            $this->config['port'],
+            $this->config['database'],
+            $this->config['charset']
+        );
 
-        $dsn = "mysql:host={$host};port={$port};dbname={$db};charset={$charset}";
         try {
             $this->pdo = new PDO(
                 $dsn,
-                (string) ($this->config['username'] ?? ''),
-                (string) ($this->config['password'] ?? ''),
-                [
-                    PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                    PDO::ATTR_EMULATE_PREPARES   => false,
-                    PDO::ATTR_STRINGIFY_FETCHES  => false,
-                ]
+                (string) $this->config['username'],
+                (string) $this->config['password'],
+                $this->config['options'] ?? []
             );
         } catch (PDOException $e) {
-            throw new RuntimeException('Database connection failed: ' . $e->getMessage(), (int) $e->getCode());
+            // Do not leak credentials or DSN details to the caller.
+            throw new RuntimeException('Database connection failed.', (int) $e->getCode());
         }
+
+        return $this->pdo;
     }
 
-    public function isConnected(): bool
+    /**
+     * @param array<string|int, mixed> $params
+     */
+    public function query(string $sql, array $params = []): \PDOStatement
     {
-        return $this->pdo !== null;
+        $stmt = $this->pdo()->prepare($sql);
+        $stmt->execute($params);
+
+        return $stmt;
     }
 
-    /** @param array<string|int,mixed> $params */
-    public function run(string $sql, array $params = []): PDOStatement
+    /**
+     * @param array<string|int, mixed> $params
+     * @return array<string, mixed>|null
+     */
+    public function first(string $sql, array $params = []): ?array
     {
-        $statement = $this->pdo()->prepare($sql);
-        $statement->execute($params);
-        return $statement;
-    }
+        $row = $this->query($sql, $params)->fetch();
 
-    /** @param array<string|int,mixed> $params @return array<string,mixed>|null */
-    public function selectOne(string $sql, array $params = []): ?array
-    {
-        $row = $this->run($sql, $params)->fetch();
         return $row === false ? null : $row;
     }
 
-    /** @param array<string|int,mixed> $params @return array<int,array<string,mixed>> */
-    public function select(string $sql, array $params = []): array
+    /**
+     * @param array<string|int, mixed> $params
+     * @return array<int, array<string, mixed>>
+     */
+    public function all(string $sql, array $params = []): array
     {
-        return $this->run($sql, $params)->fetchAll();
+        return $this->query($sql, $params)->fetchAll();
     }
 
-    /** @param array<string|int,mixed> $params */
-    public function scalar(string $sql, array $params = []): mixed
+    /**
+     * @param array<string|int, mixed> $params
+     */
+    public function execute(string $sql, array $params = []): int
     {
-        return $this->run($sql, $params)->fetchColumn();
+        return $this->query($sql, $params)->rowCount();
     }
 
-    /** @param array<string,mixed> $data */
-    public function insert(string $table, array $data): int
+    public function lastInsertId(): int
     {
-        $columns = array_keys($data);
-        $placeholders = array_map(static fn (string $c): string => ':' . $c, $columns);
-        $sql = sprintf(
-            'INSERT INTO %s (%s) VALUES (%s)',
-            $table,
-            implode(', ', $columns),
-            implode(', ', $placeholders)
-        );
-        $this->run($sql, $data);
         return (int) $this->pdo()->lastInsertId();
-    }
-
-    /** @param array<string,mixed> $data @param array<string,mixed> $where */
-    public function update(string $table, array $data, array $where): int
-    {
-        $set = implode(', ', array_map(static fn (string $c): string => "$c = :set_$c", array_keys($data)));
-        $conditions = implode(' AND ', array_map(static fn (string $c): string => "$c = :where_$c", array_keys($where)));
-
-        $params = [];
-        foreach ($data as $key => $value) {
-            $params["set_$key"] = $value;
-        }
-        foreach ($where as $key => $value) {
-            $params["where_$key"] = $value;
-        }
-
-        $sql = "UPDATE $table SET $set WHERE $conditions";
-        return $this->run($sql, $params)->rowCount();
-    }
-
-    public function transaction(callable $callback): mixed
-    {
-        $pdo = $this->pdo();
-        $pdo->beginTransaction();
-        try {
-            $result = $callback($this);
-            $pdo->commit();
-            return $result;
-        } catch (\Throwable $e) {
-            if ($pdo->inTransaction()) {
-                $pdo->rollBack();
-            }
-            throw $e;
-        }
     }
 }

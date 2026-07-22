@@ -1,108 +1,140 @@
-/* NexusDesk — progressive enhancement (vanilla JS, no dependencies). */
+/* Paragon HostOps — vanilla JS (self-hosted, CSP-friendly, no inline scripts) */
 (function () {
-  'use strict';
+    'use strict';
 
-  // --- Theme toggle (persisted) ---------------------------------------------
-  var root = document.documentElement;
-  var stored = null;
-  try { stored = localStorage.getItem('nexusdesk-theme'); } catch (e) {}
-  if (stored === 'light' || stored === 'dark') {
-    root.setAttribute('data-theme', stored);
-  }
-  document.addEventListener('click', function (e) {
-    var toggle = e.target.closest('[data-theme-toggle]');
-    if (toggle) {
-      var cur = root.getAttribute('data-theme');
-      if (!cur) {
-        cur = window.matchMedia('(prefers-color-scheme:dark)').matches ? 'dark' : 'light';
-      }
-      var next = cur === 'dark' ? 'light' : 'dark';
-      root.setAttribute('data-theme', next);
-      try { localStorage.setItem('nexusdesk-theme', next); } catch (e2) {}
-    }
+    var csrfToken = document.querySelector('meta[name="csrf-token"]');
+    csrfToken = csrfToken ? csrfToken.getAttribute('content') : '';
 
-    // --- Mobile sidebar ---
-    if (e.target.closest('[data-menu-toggle]')) {
-      document.querySelector('.sidebar')?.classList.toggle('open');
-      document.querySelector('.backdrop')?.classList.toggle('open');
-    }
-    if (e.target.classList.contains('backdrop')) {
-      document.querySelector('.sidebar')?.classList.remove('open');
-      e.target.classList.remove('open');
+    /* ---- Mobile sidebar toggle ---- */
+    function initSidebar() {
+        var burger = document.querySelector('[data-toggle="sidebar"]');
+        var sidebar = document.querySelector('.pg-sidebar');
+        var backdrop = document.querySelector('.pg-backdrop');
+        if (!burger || !sidebar) return;
+
+        function open() { sidebar.classList.add('open'); if (backdrop) backdrop.classList.add('show'); }
+        function close() { sidebar.classList.remove('open'); if (backdrop) backdrop.classList.remove('show'); }
+
+        burger.addEventListener('click', function () {
+            sidebar.classList.contains('open') ? close() : open();
+        });
+        if (backdrop) backdrop.addEventListener('click', close);
     }
 
-    // --- Internal-note toggle styling on the reply box ---
-    var noteToggle = e.target.closest('[data-note-toggle]');
-    if (noteToggle) {
-      var box = document.querySelector('[data-reply-box]');
-      if (box) { box.classList.toggle('note-mode', noteToggle.checked); }
+    /* ---- Toast notifications ---- */
+    function toast(message, type) {
+        var wrap = document.querySelector('.pg-toasts');
+        if (!wrap) {
+            wrap = document.createElement('div');
+            wrap.className = 'pg-toasts';
+            document.body.appendChild(wrap);
+        }
+        var el = document.createElement('div');
+        el.className = 'pg-toast ' + (type || '');
+        el.textContent = message;
+        wrap.appendChild(el);
+        setTimeout(function () { el.style.opacity = '0'; setTimeout(function () { el.remove(); }, 300); }, 4200);
     }
-  });
+    window.pgToast = toast;
 
-  // --- Live unread notification count ---------------------------------------
-  var badge = document.querySelector('[data-notif-count]');
-  if (badge && window.fetch) {
-    var refresh = function () {
-      fetch('/notifications/unread-count', { headers: { 'Accept': 'application/json' } })
-        .then(function (r) { return r.ok ? r.json() : null; })
-        .then(function (data) {
-          if (!data) { return; }
-          var n = data.count || 0;
-          if (n > 0) { badge.textContent = n > 99 ? '99' : n; badge.removeAttribute('hidden'); }
-          else { badge.setAttribute('hidden', ''); }
-        })
-        .catch(function () {});
-    };
-    setInterval(refresh, 60000); // poll once a minute
-  }
+    /* ---- CSRF-aware JSON POST ---- */
+    function postJson(url) {
+        return fetch(url, {
+            method: 'POST',
+            headers: {
+                'X-CSRF-Token': csrfToken,
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            },
+            credentials: 'same-origin'
+        }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); });
+    }
+    window.pgPostJson = postJson;
 
-  // --- AI assist (ticket workspace) -----------------------------------------
-  function csrf() {
-    var el = document.querySelector('input[name="_token"]');
-    return el ? el.value : '';
-  }
-  document.addEventListener('click', function (e) {
-    var chip = e.target.closest('[data-ai]');
-    if (chip && window.fetch) {
-      var task = chip.getAttribute('data-ai');
-      var ticket = chip.getAttribute('data-ticket');
-      var box = document.querySelector('[data-ai-result]');
-      var out = document.querySelector('[data-ai-output]');
-      var stub = document.querySelector('[data-ai-stub]');
-      if (box && out) {
-        box.removeAttribute('hidden');
-        out.textContent = 'Thinking…';
-        fetch('/desk/tickets/' + ticket + '/ai/' + task, {
-          method: 'POST',
-          headers: { 'X-CSRF-Token': csrf(), 'Accept': 'application/json' }
-        })
-          .then(function (r) { return r.json(); })
-          .then(function (res) {
-            var data = (res && res.data) ? res.data : res;
-            out.textContent = data.output || 'No suggestion.';
-            if (stub) { stub.textContent = data.stubbed ? '(stub — connect a provider in Settings → AI)' : ''; }
-          })
-          .catch(function () { out.textContent = 'AI request failed.'; });
-      }
-    }
-    var insert = e.target.closest('[data-ai-insert]');
-    if (insert) {
-      var text = document.querySelector('[data-ai-output]');
-      var textarea = document.querySelector('[data-reply-box] textarea[name="body"]');
-      if (text && textarea) {
-        textarea.value = (textarea.value ? textarea.value + '\n\n' : '') + text.textContent;
-        textarea.focus();
-      }
-    }
-  });
+    /* ---- WHM connection test (settings page) ---- */
+    function initWhmTest() {
+        var btn = document.querySelector('[data-action="whm-test"]');
+        var out = document.querySelector('[data-whm-test-result]');
+        if (!btn || !out) return;
 
-  // --- Confirm destructive actions ------------------------------------------
-  document.addEventListener('submit', function (e) {
-    var form = e.target;
-    if (form.hasAttribute('data-confirm')) {
-      if (!window.confirm(form.getAttribute('data-confirm'))) {
-        e.preventDefault();
-      }
+        btn.addEventListener('click', function () {
+            btn.disabled = true;
+            var original = btn.textContent;
+            btn.textContent = 'Testing…';
+            out.innerHTML = '<div class="pg-soft">Running connection test…</div>';
+
+            postJson(btn.getAttribute('data-endpoint')).then(function (res) {
+                renderTest(out, res.data);
+                toast(res.data.ok ? 'WHM connection successful' : 'WHM connection failed', res.data.ok ? 'ok' : 'danger');
+            }).catch(function () {
+                out.innerHTML = '<div class="pg-alert error">Unable to run the connection test.</div>';
+            }).finally(function () {
+                btn.disabled = false;
+                btn.textContent = original;
+            });
+        });
     }
-  });
+
+    function renderTest(out, data) {
+        if (!data) { out.innerHTML = ''; return; }
+        var html = '<div class="pg-alert ' + (data.ok ? 'success' : 'error') + '">' + escapeHtml(data.message) + '</div>';
+        if (data.steps && data.steps.length) {
+            html += '<table class="pg-table"><tbody>';
+            data.steps.forEach(function (s) {
+                var badge = s.ok ? '<span class="pg-badge ok">Pass</span>' : '<span class="pg-badge danger">Fail</span>';
+                html += '<tr><td>' + escapeHtml(s.name) + '</td><td class="pg-soft">' + escapeHtml(s.detail) + '</td><td class="text-right">' + badge + '</td></tr>';
+            });
+            html += '</tbody></table>';
+        }
+        out.innerHTML = html;
+    }
+
+    /* ---- Capability checker ---- */
+    function initCapabilityCheck() {
+        var btn = document.querySelector('[data-action="whm-capabilities"]');
+        var out = document.querySelector('[data-whm-capabilities-result]');
+        if (!btn || !out) return;
+
+        btn.addEventListener('click', function () {
+            btn.disabled = true;
+            var original = btn.textContent;
+            btn.textContent = 'Checking…';
+            out.innerHTML = '<div class="pg-soft">Probing token capabilities…</div>';
+
+            postJson(btn.getAttribute('data-endpoint')).then(function (res) {
+                var caps = (res.data && res.data.capabilities) || [];
+                var html = '<table class="pg-table"><thead><tr><th>Function</th><th>Status</th><th>Detail</th></tr></thead><tbody>';
+                caps.forEach(function (c) {
+                    html += '<tr><td><code>' + escapeHtml(c.function) + '</code></td><td>' + statusBadge(c.status, c.label) + '</td><td class="pg-soft">' + escapeHtml(c.message) + '</td></tr>';
+                });
+                html += '</tbody></table>';
+                out.innerHTML = html;
+            }).catch(function () {
+                out.innerHTML = '<div class="pg-alert error">Unable to probe capabilities.</div>';
+            }).finally(function () {
+                btn.disabled = false;
+                btn.textContent = original;
+            });
+        });
+    }
+
+    function statusBadge(status, label) {
+        var cls = 'neutral';
+        if (status === 'available') cls = 'ok';
+        else if (status === 'permission_denied' || status === 'auth_failed') cls = 'warn';
+        else if (status === 'server_error') cls = 'danger';
+        return '<span class="pg-badge ' + cls + '">' + escapeHtml(label) + '</span>';
+    }
+
+    function escapeHtml(s) {
+        return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        initSidebar();
+        initWhmTest();
+        initCapabilityCheck();
+    });
 })();

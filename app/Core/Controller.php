@@ -2,34 +2,48 @@
 
 declare(strict_types=1);
 
-namespace App\Core;
+namespace ParagonHostOps\Core;
+
+use ParagonHostOps\Services\Auth;
 
 /**
- * Base controller with view/redirect/json helpers. Controllers stay thin:
- * validate input, call a service, return a response.
+ * Base controller providing view rendering, redirects and JSON helpers.
  */
 abstract class Controller
 {
-    /** @param array<string,mixed> $data */
-    protected function view(string $template, array $data = [], ?string $layout = 'layouts/app'): Response
+    protected function view(string $view, array $data = [], int $status = 200): Response
     {
-        return View::make($template, $data, $layout);
+        /** @var View $renderer */
+        $renderer = app(View::class);
+
+        // Make common data available to every view.
+        $data += [
+            'auth'    => app(Auth::class),
+            'appName' => config('app.name'),
+            'tagline' => config('app.tagline'),
+        ];
+
+        return Response::html($renderer->render($view, $data), $status);
     }
 
-    protected function redirect(string $location): RedirectResponse
+    protected function redirect(string $path): Response
     {
-        return new RedirectResponse($location);
+        return Response::redirect(url($path));
     }
 
-    protected function back(string $fallback = '/'): RedirectResponse
+    protected function back(string $fallback = '/dashboard'): Response
     {
-        $referer = $_SERVER['HTTP_REFERER'] ?? $fallback;
-        return new RedirectResponse($referer);
+        $referer = $_SERVER['HTTP_REFERER'] ?? null;
+        return Response::redirect(is_string($referer) && $referer !== '' ? $referer : url($fallback));
     }
 
-    /** @param mixed $data @param array<string,mixed> $meta */
-    protected function json(mixed $data, array $meta = [], int $status = 200): JsonResponse
+    protected function json(array $data, int $status = 200): Response
     {
-        return JsonResponse::ok($data, $meta, $status);
+        return Response::json($data, $status);
+    }
+
+    protected function session(): Session
+    {
+        return app(Session::class);
     }
 }

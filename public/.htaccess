@@ -1,24 +1,31 @@
-# NexusDesk — Apache front-controller rewrite (cPanel)
+# Paragon HostOps - public front controller rewrite rules
+
 <IfModule mod_rewrite.c>
     RewriteEngine On
 
-    # Serve existing files/directories directly (assets, installer).
+    # Redirect trailing slashes (except root) for canonical URLs.
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^(.+)/$ /$1 [L,R=301]
+
+    # Serve existing files/directories directly.
     RewriteCond %{REQUEST_FILENAME} -f [OR]
     RewriteCond %{REQUEST_FILENAME} -d
     RewriteRule ^ - [L]
 
-    # Everything else → front controller.
+    # Route everything else through the front controller.
     RewriteRule ^ index.php [L]
 </IfModule>
 
-# Deny access to dotfiles (.env lives above web root, but defence-in-depth).
+# Do not expose dotfiles.
 <FilesMatch "^\.">
     Require all denied
 </FilesMatch>
 
-<IfModule mod_headers.c>
-    Header set X-Content-Type-Options "nosniff"
-</IfModule>
-
 # Disable directory listing.
 Options -Indexes
+
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "DENY"
+    Header set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>

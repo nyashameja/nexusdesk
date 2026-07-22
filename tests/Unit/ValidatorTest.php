@@ -2,60 +2,44 @@
 
 declare(strict_types=1);
 
-namespace Tests\Unit;
+namespace ParagonHostOps\Tests\Unit;
 
-use App\Support\Validation\Validator;
+use ParagonHostOps\Validators\Validator;
 use PHPUnit\Framework\TestCase;
 
 final class ValidatorTest extends TestCase
 {
-    public function test_required_and_email_rules(): void
+    public function test_required_fields_fail_when_empty(): void
     {
-        $validator = Validator::make(
-            ['email' => 'not-an-email', 'name' => ''],
-            ['email' => 'required|email', 'name' => 'required']
-        );
+        $v = (new Validator(['email' => '', 'password' => '']))
+            ->required('email', 'Email')
+            ->required('password', 'Password');
 
-        $this->assertTrue($validator->fails());
-        $this->assertArrayHasKey('email', $validator->errors());
-        $this->assertArrayHasKey('name', $validator->errors());
+        $this->assertTrue($v->fails());
+        $this->assertNotNull($v->firstError());
     }
 
-    public function test_passes_with_valid_data(): void
+    public function test_invalid_email_is_rejected(): void
     {
-        $validator = Validator::make(
-            ['email' => 'jane@acme.com', 'subject' => 'Hello there'],
-            ['email' => 'required|email', 'subject' => 'required|max:255']
-        );
-
-        $this->assertTrue($validator->passes());
-        $this->assertSame(['email' => 'jane@acme.com', 'subject' => 'Hello there'], $validator->validated());
+        $v = (new Validator(['email' => 'not-an-email']))->email('email', 'Email');
+        $this->assertTrue($v->fails());
     }
 
-    public function test_min_max_and_in_rules(): void
+    public function test_valid_input_passes(): void
     {
-        $validator = Validator::make(
-            ['password' => 'short', 'priority' => 'unknown'],
-            ['password' => 'min:8', 'priority' => 'in:low,medium,high']
-        );
+        $v = (new Validator(['email' => 'user@example.com', 'password' => 'secret123']))
+            ->required('email', 'Email')
+            ->email('email', 'Email')
+            ->required('password', 'Password')
+            ->min('password', 'Password', 6);
 
-        $this->assertTrue($validator->fails());
-        $this->assertArrayHasKey('password', $validator->errors());
-        $this->assertArrayHasKey('priority', $validator->errors());
+        $this->assertTrue($v->passes());
+        $this->assertNull($v->firstError());
     }
 
-    public function test_confirmed_rule(): void
+    public function test_max_length_is_enforced(): void
     {
-        $ok = Validator::make(
-            ['password' => 'secret12', 'password_confirmation' => 'secret12'],
-            ['password' => 'confirmed']
-        );
-        $this->assertTrue($ok->passes());
-
-        $bad = Validator::make(
-            ['password' => 'secret12', 'password_confirmation' => 'different'],
-            ['password' => 'confirmed']
-        );
-        $this->assertTrue($bad->fails());
+        $v = (new Validator(['name' => str_repeat('a', 20)]))->max('name', 'Name', 10);
+        $this->assertTrue($v->fails());
     }
 }

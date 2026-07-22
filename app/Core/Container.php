@@ -2,104 +2,63 @@
 
 declare(strict_types=1);
 
-namespace App\Core;
+namespace ParagonHostOps\Core;
 
-use Closure;
 use RuntimeException;
 
 /**
- * Small PSR-11-flavoured dependency injection container.
+ * Very small dependency-injection container.
  *
- * Supports explicit bindings (factories), singletons, and autowiring of
- * constructor dependencies via reflection. This is the single seam where
- * interfaces are mapped to concrete implementations (see config/services.php),
- * so providers (Mailer, AI, Zoho, Cache, Logger) swap with no core changes.
+ * Supports singleton bindings via closures. Deliberately minimal — the goal is
+ * to avoid global state and enable testing, not to reimplement a full IoC
+ * framework.
  */
 final class Container
 {
-    /** @var array<string,Closure> */
-    private array $bindings = [];
-    /** @var array<string,object> */
-    private array $instances = [];
-    /** @var array<string,bool> */
-    private array $shared = [];
+    private static ?Container $instance = null;
 
-    public function bind(string $id, Closure $factory, bool $shared = false): void
+    /** @var array<string, callable> */
+    private array $bindings = [];
+
+    /** @var array<string, mixed> */
+    private array $resolved = [];
+
+    public static function instance(): self
+    {
+        return self::$instance ??= new self();
+    }
+
+    public static function setInstance(?Container $container): void
+    {
+        self::$instance = $container;
+    }
+
+    public function bind(string $id, callable $factory): void
     {
         $this->bindings[$id] = $factory;
-        $this->shared[$id] = $shared;
-        unset($this->instances[$id]);
+        unset($this->resolved[$id]);
     }
 
-    public function singleton(string $id, Closure $factory): void
+    public function instanceValue(string $id, mixed $value): void
     {
-        $this->bind($id, $factory, true);
-    }
-
-    public function instance(string $id, object $instance): void
-    {
-        $this->instances[$id] = $instance;
+        $this->resolved[$id] = $value;
     }
 
     public function has(string $id): bool
     {
-        return isset($this->bindings[$id]) || isset($this->instances[$id]);
+        return isset($this->bindings[$id]) || array_key_exists($id, $this->resolved);
     }
 
     public function get(string $id): mixed
     {
-        if (isset($this->instances[$id])) {
-            return $this->instances[$id];
+        if (array_key_exists($id, $this->resolved)) {
+            return $this->resolved[$id];
         }
 
-        if (isset($this->bindings[$id])) {
-            $object = ($this->bindings[$id])($this);
-            if ($this->shared[$id] ?? false) {
-                $this->instances[$id] = $object;
-            }
-            return $object;
+        if (!isset($this->bindings[$id])) {
+            throw new RuntimeException("No container binding for '{$id}'.");
         }
 
-        // Autowire concrete classes.
-        if (class_exists($id)) {
-            $object = $this->build($id);
-            return $object;
-        }
-
-        throw new RuntimeException("Container has no binding for [$id].");
-    }
-
-    /**
-     * @param class-string $class
-     */
-    public function build(string $class): object
-    {
-        $reflector = new \ReflectionClass($class);
-        if (!$reflector->isInstantiable()) {
-            throw new RuntimeException("Class [$class] is not instantiable.");
-        }
-
-        $constructor = $reflector->getConstructor();
-        if ($constructor === null) {
-            return new $class();
-        }
-
-        $dependencies = [];
-        foreach ($constructor->getParameters() as $param) {
-            $type = $param->getType();
-            if ($type instanceof \ReflectionNamedType && !$type->isBuiltin()) {
-                $dependencies[] = $this->get($type->getName());
-            } elseif ($param->isDefaultValueAvailable()) {
-                $dependencies[] = $param->getDefaultValue();
-            } elseif ($param->allowsNull()) {
-                $dependencies[] = null;
-            } else {
-                throw new RuntimeException(
-                    "Cannot resolve parameter \${$param->getName()} for [$class]."
-                );
-            }
-        }
-
-        return $reflector->newInstanceArgs($dependencies);
+        return $this->resolved[$id] = ($this->bindings[$id])($this);
     }
 }

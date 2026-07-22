@@ -1,93 +1,165 @@
-# NexusDesk
+# Paragon HostOps
 
-A modern, production-grade **Help Desk & Client Portal** for web agencies, IT companies, MSPs and
-digital businesses. Built in vanilla PHP 8.3 (hand-rolled MVC) for standard **cPanel shared hosting**
-— no Docker, no Node server, no Laravel/Symfony required.
+**Hosting Management & Operations Platform** — an internal dashboard for
+The Paragon Design that connects securely (read-only) to a WHM/cPanel server
+via the WHM API 1 and surfaces hosting accounts, packages, SSL, bandwidth,
+clients and financials.
 
-> NexusDesk is the client portal and support system. **Zoho Books** remains the accounting system —
-> invoices, quotes, statements and payments are integrated via its REST API, not re-implemented.
+> **Version 1 is read-only.** No destructive WHM actions exist (no terminate,
+> suspend, password change, DNS edit, package delete, token management, or
+> shell). The architecture is modular so controlled management features can be
+> added later.
 
-## Status
+---
 
-This project is being built in **approved, reviewable stages**. See the roadmap in
-[`docs/architecture/01-SOFTWARE-ARCHITECTURE.md`](docs/architecture/01-SOFTWARE-ARCHITECTURE.md).
+## 1. Technology
 
-| Stage | Deliverable | State |
-|---|---|---|
-| 1 | Software architecture, folder structure, roadmap | ✅ Delivered |
-| 2 | Database schema, ER diagrams, migrations & seeds | ✅ Delivered |
-| 3 | Page inventory, navigation & user journeys | ✅ Delivered |
-| 4 | Wireframes & design system | ✅ Delivered |
-| 5 | REST API specification | ✅ Delivered |
-| 6 | Project skeleton — kernel, router, DI container, middleware, views, installer, tests | ✅ Delivered |
-| 7 | Auth + RBAC + users + departments + settings/branding + audit + security core | ✅ Delivered |
-| 8 | Help-desk core — tickets, replies, notes, status, assign, transfer, time, SLA | ✅ Delivered |
-| 9 | Knowledge base — categories, articles, search, feedback, management | ✅ Delivered |
-| 10 | Email engine — SMTP, templates, DB job queue, cron worker | ✅ Delivered |
-| 11 | Notifications centre + global search | ✅ Delivered |
-| 12 | Zoho Books integration — OAuth, cached invoices/quotes/statements, PDF | ✅ Delivered |
-| 13 | Reporting & dashboards — charts + CSV/Excel/PDF export | ✅ Delivered |
-| 14 | REST API v1 + token management + rate limiting | ✅ Delivered |
-| 15 | AI touchpoints (summarise / suggest reply / sentiment) wired to the workspace | ✅ Delivered |
-| 16 | Backups (gzipped SQL dumps) + admin UI + nightly cron | ✅ Delivered |
-| 17 | Hardening pass + deployment & security guides | ✅ Delivered |
+- PHP 8.2+ (tested on 8.4), MySQL 8 / MariaDB 10.4+
+- PDO with prepared statements, PHP cURL for WHM
+- Custom lightweight MVC-inspired architecture (no framework, no Node runtime,
+  no Docker required in production)
+- Bespoke, self-hosted CSS/JS front end (Chart.js is added, vendored locally,
+  in the hosting-dashboard phase) — nothing loads from a CDN, so a strict
+  Content-Security-Policy can be enforced.
 
-**All 17 roadmap stages are complete.** See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) and
-[`docs/SECURITY.md`](docs/SECURITY.md).
-
-### Cron jobs (cPanel)
+## 2. Directory layout
 
 ```
-* * * * *   php /path/nexusdesk/cron/process_jobs.php   # queue worker (email, etc.)
-*/5 * * * * php /path/nexusdesk/cron/sla_monitor.php    # SLA breach detection
-0 * * * *   php /path/nexusdesk/cron/zoho_sync.php      # Zoho Books cache sync (hourly)
-30 2 * * *  php /path/nexusdesk/cron/backup.php         # nightly database backup
+app/            Controllers, Services, Repositories, Middleware, Validators, Views, Core
+bootstrap/      Container wiring + kernel bootstrap
+config/         app.php, database.php, whm.php
+database/       schema.sql, migrate.php, migrations/, seeds/
+public/         Front controller (document root), assets, .htaccess
+routes/         web.php, api.php
+storage/        cache/, logs/, sessions/  (writable, web-inaccessible)
+tests/          PHPUnit tests + WHM fixtures
+bin/            create-admin.php (one-time)
 ```
 
-### REST API
-
-Bearer-token auth against `/api/v1` (create tokens in Admin → Settings → API tokens):
-
-```
-curl -H "Authorization: Bearer <token>" https://your-domain/api/v1/tickets
-```
-
-Endpoints: tickets (list/create/show/reply), departments, lookups, knowledge base, invoices,
-notifications, `/auth/me`, and a public `/api/v1/health`. Rate-limited with `X-RateLimit-*` headers.
-Full contract in [`docs/architecture/05-API-SPECIFICATION.md`](docs/architecture/05-API-SPECIFICATION.md).
-
-### Zoho Books
-
-Set `ZOHO_CLIENT_ID` / `ZOHO_CLIENT_SECRET` (and `ZOHO_REGION`) in `.env`, then connect via
-**Admin → Settings → Zoho Books** (OAuth). Invoices, quotes, statements and payments are cached
-locally and shown in the client portal, scoped to each company by its Zoho contact ID. Accounting
-stays in Zoho — NexusDesk is read-only.
-
-## Running locally
+## 3. Local development
 
 ```bash
 composer install
-# Point a MySQL/MariaDB database at the app, then visit /installer.php,
-# or manually:  mysql yourdb < database/schema.sql && mysql yourdb < database/seeds/seed.sql
-cp .env.example .env          # set DB + mail credentials (the installer writes this for you)
-php -S 127.0.0.1:8000 -t public public/index.php   # dev server (Apache in production)
-vendor/bin/phpunit            # run the test suite
+cp .env.example .env         # then edit values
+php database/migrate.php --seed
+php bin/create-admin.php     # creates the first Super Administrator
+composer serve               # http://localhost:8000
 ```
 
-The document root is `public/`. On cPanel, upload the project and point the domain's document
-root at `public/` (a root `.htaccess` also guards internals if you cannot).
+Run the tests:
 
-## Design documentation
+```bash
+composer test
+```
 
-- [`docs/architecture/01-SOFTWARE-ARCHITECTURE.md`](docs/architecture/01-SOFTWARE-ARCHITECTURE.md) — architecture, layering, folder structure, security, integrations, roadmap
-- [`docs/architecture/02-DATABASE.md`](docs/architecture/02-DATABASE.md) — schema, ER diagrams, indexing, migration/seed plan · SQL in [`database/`](database/)
-- [`docs/architecture/03-PAGES-NAVIGATION-JOURNEYS.md`](docs/architecture/03-PAGES-NAVIGATION-JOURNEYS.md) — ~90 pages, navigation, user journeys for all 5 roles
-- [`docs/architecture/04-WIREFRAMES-DESIGN-SYSTEM.md`](docs/architecture/04-WIREFRAMES-DESIGN-SYSTEM.md) — design tokens, components, wireframes
-- [`docs/architecture/05-API-SPECIFICATION.md`](docs/architecture/05-API-SPECIFICATION.md) — REST API contract
+### Mock mode (no live WHM needed)
 
-## Tech stack
+Set `WHM_MOCK_MODE=true` in `.env`. The client reads canned fixtures from
+`tests/fixtures/whm` instead of calling the server. **Never enable this in
+production.**
 
-PHP 8.3 · MySQL/MariaDB · Apache · Bootstrap 5.3 · Vanilla JS + AJAX · Chart.js · PHPMailer ·
-Composer · REST API · Light/Dark themes.
+## 4. Environment configuration
 
-*Code stages (skeleton, features, installer) are added as each stage is approved.*
+Copy `.env.example` to `.env` and fill in the values. The WHM API token lives
+**only** in `.env` — it is never rendered in the UI, exposed to JavaScript,
+returned in API responses, written to logs, or stored in the database.
+
+Key groups: `APP_*`, `DB_*`, `WHM_*`, `SESSION_*`, `CRON_SECRET`, login
+throttling. See the annotated `.env.example`.
+
+## 5. WHM token configuration
+
+1. In WHM → *Manage API Tokens*, create a **read-only** token with (at minimum)
+   the privileges: `list-accts`, `acct-summary`, `list-pkgs`, `show-bandwidth`,
+   `ssl-info`, `basic-system-info`, `basic-whm-functions`, `mysql-info`.
+2. Put the host, username and token into `.env` (`WHM_HOST`, `WHM_USERNAME`,
+   `WHM_API_TOKEN`). Do **not** include the protocol or port in `WHM_HOST`.
+3. Visit **Settings → WHM** in the app and click **Test WHM connection**.
+
+### Rotating / revoking the token
+
+- **Rotate:** create a new token in WHM, update `WHM_API_TOKEN` in `.env`, then
+  re-run the connection test. Finally delete the old token in WHM.
+- **Revoke (compromise):** delete the token in WHM immediately, then replace the
+  value in `.env`. The app fails closed — WHM features show
+  "Unavailable with current WHM permissions" until a working token is set.
+
+## 6. cPanel deployment
+
+**Preferred:** point the account/subdomain document root at the project's
+`public/` directory (cPanel → *Domains* → set document root, or place the app
+outside `public_html` and repoint).
+
+**If the document root cannot be moved** (basic shared hosting), upload the
+whole project into `public_html`. The root `.htaccess` blocks direct access to
+`app/`, `config/`, `database/`, `storage/`, `vendor/`, `.env`, and log/sql
+files, and transparently rewrites requests into `public/`.
+
+Steps:
+
+1. Upload via File Manager / FTP / Git.
+2. Create a MySQL database + user in cPanel; grant all privileges.
+3. Set `.env` with the DB and WHM values.
+4. Import `database/schema.sql` via phpMyAdmin **or** run
+   `php database/migrate.php --seed` from cPanel *Terminal*.
+5. Run `php bin/create-admin.php`, then **delete** `bin/create-admin.php`.
+6. Ensure `storage/` is writable (0750/0770 depending on host).
+
+### File permissions
+
+- Directories `755` (or `750`), files `644`.
+- `storage/` and its subdirectories must be writable by PHP.
+- `.env` should be `600` where the host allows it.
+
+### SSL
+
+Serve the dashboard over HTTPS only. In production (`APP_ENV=production`) the
+app sends HSTS and sets `SESSION_SECURE_COOKIE=true` should be configured.
+
+## 7. Cron Jobs
+
+Scheduled synchronisation and uptime checks run via a protected web endpoint or
+CLI script (added in the monitoring phase). Secure the web endpoint with
+`CRON_SECRET`. Example cPanel cron entries:
+
+```
+# Nightly WHM sync (CLI)
+0 2 * * * /usr/local/bin/php /home/USER/hostops/database/migrate.php >/dev/null 2>&1
+
+# Uptime checks every 10 minutes (web, secret-protected) — added in Phase 5
+*/10 * * * * curl -s "https://ops.example.com/cron/uptime?token=CRON_SECRET" >/dev/null
+```
+
+## 8. Production security checklist
+
+- [ ] `APP_ENV=production`, `APP_DEBUG=false`
+- [ ] HTTPS enforced; `SESSION_SECURE_COOKIE=true`
+- [ ] `.env` not web-accessible; permissions locked down
+- [ ] `bin/create-admin.php` deleted
+- [ ] `WHM_MOCK_MODE=false`
+- [ ] `WHM_VERIFY_SSL=true`
+- [ ] Strong `CRON_SECRET` set
+- [ ] Database user limited to this schema
+- [ ] Log rotation configured for `storage/logs`
+
+## 9. Maintenance
+
+- **Clear cache:** delete files under `storage/cache/`.
+- **Inspect logs:** `storage/logs/app-YYYY-MM-DD.log` (credentials are
+  auto-redacted; never commit logs).
+- **Create an administrator:** `php bin/create-admin.php`.
+- **Run synchronisation manually:** from **Settings → Synchronisation** (added
+  in the sync phase) or the CLI sync command.
+
+## 10. WHM data availability (reseller read-only token)
+
+Some data may be limited for a reseller/read-only token. The dashboard degrades
+gracefully ("Unavailable with current WHM permissions") rather than crashing.
+Likely-limited areas: server-wide `get_server_information`/`servicestatus`
+(root-only on some servers), per-mailbox data (needs `cpanel-api`), and
+`listsuspended` on restricted resellers. The **Settings → WHM → Capabilities**
+checker reports exactly what the current token can call.
+
+---
+
+© The Paragon Design — internal use only.

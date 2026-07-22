@@ -1,0 +1,20 @@
+{
+    "metadata": {
+        "version": 1,
+        "result": 1,
+        "reason": "OK",
+        "command": "fetch_ssl_vhosts"
+    },
+    "data": {
+        "vhosts": [
+            {
+                "servername": "acmecorp.co.za",
+                "crt": { "not_after": 1789200000, "not_before": 1773561600, "issuer.commonName": "R3", "domains": ["acmecorp.co.za", "www.acmecorp.co.za"] }
+            },
+            {
+                "servername": "brightmedia.org",
+                "crt": { "not_after": 1774339200, "not_before": 1766563200, "issuer.commonName": "R3", "domains": ["brightmedia.org", "www.brightmedia.org"] }
+            }
+        ]
+    }
+}

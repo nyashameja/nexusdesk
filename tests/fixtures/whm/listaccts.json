@@ -1,0 +1,57 @@
+{
+    "metadata": {
+        "version": 1,
+        "result": 1,
+        "reason": "OK",
+        "command": "listaccts"
+    },
+    "data": {
+        "acct": [
+            {
+                "user": "paragon1",
+                "domain": "acmecorp.co.za",
+                "ip": "197.221.10.20",
+                "plan": "Business-10GB",
+                "email": "admin@acmecorp.co.za",
+                "owner": "paragonreseller",
+                "suspended": 0,
+                "suspendreason": "not suspended",
+                "startdate": "24/3/12 08:14:02",
+                "diskused": "4210M",
+                "disklimit": "10240M",
+                "theme": "jupiter",
+                "locale": "en"
+            },
+            {
+                "user": "paragon2",
+                "domain": "brightmedia.org",
+                "ip": "197.221.10.21",
+                "plan": "Starter-2GB",
+                "email": "hello@brightmedia.org",
+                "owner": "paragonreseller",
+                "suspended": 0,
+                "suspendreason": "not suspended",
+                "startdate": "23/11/2 10:02:55",
+                "diskused": "1890M",
+                "disklimit": "2048M",
+                "theme": "jupiter",
+                "locale": "en"
+            },
+            {
+                "user": "paragon3",
+                "domain": "delta-legal.co.za",
+                "ip": "197.221.10.22",
+                "plan": "Business-10GB",
+                "email": "info@delta-legal.co.za",
+                "owner": "paragonreseller",
+                "suspended": 1,
+                "suspendreason": "Non-payment",
+                "startdate": "22/7/19 14:41:10",
+                "diskused": "8600M",
+                "disklimit": "10240M",
+                "theme": "jupiter",
+                "locale": "en"
+            }
+        ]
+    }
+}

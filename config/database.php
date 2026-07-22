@@ -2,13 +2,22 @@
 
 declare(strict_types=1);
 
-use App\Core\Env;
-
+/**
+ * Database connection configuration (PDO / MySQL).
+ */
 return [
-    'host'     => Env::get('DB_HOST', 'localhost'),
-    'port'     => (int) Env::get('DB_PORT', 3306),
-    'database' => Env::get('DB_DATABASE', 'nexusdesk'),
-    'username' => Env::get('DB_USERNAME', 'root'),
-    'password' => Env::get('DB_PASSWORD', ''),
-    'charset'  => Env::get('DB_CHARSET', 'utf8mb4'),
+    'host'     => env('DB_HOST', 'localhost'),
+    'port'     => (int) env('DB_PORT', 3306),
+    'database' => env('DB_DATABASE', 'paragon_hostops'),
+    'username' => env('DB_USERNAME', ''),
+    'password' => env('DB_PASSWORD', ''),
+    'charset'  => env('DB_CHARSET', 'utf8mb4'),
+
+    'options' => [
+        // Throw exceptions on error, fetch associative arrays, use real prepares.
+        PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+        PDO::ATTR_EMULATE_PREPARES   => false,
+        PDO::ATTR_STRINGIFY_FETCHES  => false,
+    ],
 ];

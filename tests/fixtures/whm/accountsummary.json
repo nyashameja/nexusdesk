@@ -1,0 +1,19 @@
+{
+    "metadata": { "version": 1, "result": 1, "reason": "OK", "command": "accountsummary" },
+    "data": {
+        "acct": [
+            {
+                "user": "paragon1",
+                "domain": "acmecorp.co.za",
+                "ip": "197.221.10.20",
+                "plan": "Business-10GB",
+                "email": "admin@acmecorp.co.za",
+                "suspended": 0,
+                "startdate": "24/3/12 08:14:02",
+                "diskused": "4210M",
+                "disklimit": "10240M",
+                "theme": "jupiter"
+            }
+        ]
+    }
+}

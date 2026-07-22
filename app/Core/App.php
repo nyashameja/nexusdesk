@@ -2,50 +2,104 @@
 
 declare(strict_types=1);
 
-namespace App\Core;
+namespace ParagonHostOps\Core;
+
+use ParagonHostOps\Core\Exceptions\HttpException;
+use ParagonHostOps\Services\Whm\Exceptions\WhmException;
+use Throwable;
 
 /**
- * Static access point to the container and config. Set once during bootstrap.
- * Keeps helper functions simple without turning the whole app into globals.
+ * Application kernel. Owns the request → response lifecycle, applies security
+ * headers, and converts exceptions into friendly error pages.
  */
 final class App
 {
-    private static ?Container $container = null;
-    private static ?Config $config = null;
-    private static string $basePath = '';
-
-    public static function boot(Container $container, Config $config, string $basePath): void
-    {
-        self::$container = $container;
-        self::$config = $config;
-        self::$basePath = rtrim($basePath, '/');
+    public function __construct(
+        private Container $container,
+        private Router $router,
+    ) {
     }
 
-    public static function container(): Container
+    public function run(Request $request): void
     {
-        if (self::$container === null) {
-            throw new \RuntimeException('Application container not booted.');
+        $response = $this->handle($request);
+        $this->applySecurityHeaders($response);
+        $response->send();
+    }
+
+    private function handle(Request $request): Response
+    {
+        try {
+            return $this->router->dispatch($request);
+        } catch (HttpException $e) {
+            return $this->renderError($request, $e->statusCode(), $e->getMessage());
+        } catch (WhmException $e) {
+            $this->log('error', 'Unhandled WHM exception: ' . $e->getMessage());
+            return $this->renderError($request, 502, $e->safeMessage());
+        } catch (Throwable $e) {
+            $this->log('error', 'Unhandled exception: ' . $e->getMessage(), [
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
+
+            $debug   = (bool) config('app.debug', false);
+            $message = $debug
+                ? $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine()
+                : 'An unexpected error occurred.';
+
+            return $this->renderError($request, 500, $message);
         }
-        return self::$container;
     }
 
-    public static function config(string $key, mixed $default = null): mixed
+    private function renderError(Request $request, int $status, string $message): Response
     {
-        return self::$config?->get($key, $default) ?? $default;
+        if ($request->wantsJson()) {
+            return Response::json(['error' => $message], $status);
+        }
+
+        try {
+            /** @var View $view */
+            $view = $this->container->get(View::class);
+            $html = $view->render('errors.error', [
+                'status'  => $status,
+                'message' => $message,
+                'appName' => config('app.name'),
+                'tagline' => config('app.tagline'),
+            ]);
+            return Response::html($html, $status);
+        } catch (Throwable) {
+            return Response::html("<h1>{$status}</h1><p>" . e($message) . '</p>', $status);
+        }
     }
 
-    public static function basePath(string $path = ''): string
+    private function applySecurityHeaders(Response $response): void
     {
-        return self::$basePath . ($path !== '' ? '/' . ltrim($path, '/') : '');
+        $csp = "default-src 'self'; "
+            . "img-src 'self' data:; "
+            . "style-src 'self' 'unsafe-inline'; "
+            . "script-src 'self'; "
+            . "font-src 'self'; "
+            . "connect-src 'self'; "
+            . "frame-ancestors 'none'; "
+            . "base-uri 'self'; "
+            . "form-action 'self'";
+
+        $response
+            ->header('X-Frame-Options', 'DENY')
+            ->header('X-Content-Type-Options', 'nosniff')
+            ->header('Referrer-Policy', 'strict-origin-when-cross-origin')
+            ->header('X-XSS-Protection', '0')
+            ->header('Content-Security-Policy', $csp);
+
+        if (config('app.env') === 'production') {
+            $response->header('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+        }
     }
 
-    public static function storagePath(string $path = ''): string
+    private function log(string $level, string $message, array $context = []): void
     {
-        return self::basePath('storage' . ($path !== '' ? '/' . ltrim($path, '/') : ''));
-    }
-
-    public static function isDebug(): bool
-    {
-        return (bool) self::config('app.debug', false);
+        if ($this->container->has(Logger::class)) {
+            $this->container->get(Logger::class)->{$level}($message, $context);
+        }
     }
 }

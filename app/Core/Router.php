@@ -2,117 +2,150 @@
 
 declare(strict_types=1);
 
-namespace App\Core;
+namespace ParagonHostOps\Core;
 
-use App\Core\Middleware\MiddlewareInterface;
-use RuntimeException;
+use ParagonHostOps\Core\Exceptions\HttpException;
 
 /**
- * Route registry + dispatcher. Supports route groups (shared prefix and
- * middleware) and named routes for URL generation.
+ * Front-controller router.
+ *
+ * Routes are registered with an HTTP method, a path pattern (supporting
+ * {param} placeholders), a controller/action pair and an optional list of
+ * middleware. Middleware run before the action and may short-circuit the
+ * request by returning a Response.
  */
 final class Router
 {
-    /** @var Route[] */
+    /** @var array<int, array{method:string,pattern:string,regex:string,params:array<int,string>,handler:array{0:string,1:string},middleware:array<int,string>}> */
     private array $routes = [];
-    private string $groupPrefix = '';
-    /** @var array<class-string<MiddlewareInterface>> */
-    private array $groupMiddleware = [];
 
-    public function get(string $path, mixed $handler): Route
+    public function __construct(private Container $container)
     {
-        return $this->add('GET', $path, $handler);
-    }
-
-    public function post(string $path, mixed $handler): Route
-    {
-        return $this->add('POST', $path, $handler);
-    }
-
-    public function put(string $path, mixed $handler): Route
-    {
-        return $this->add('PUT', $path, $handler);
-    }
-
-    public function patch(string $path, mixed $handler): Route
-    {
-        return $this->add('PATCH', $path, $handler);
-    }
-
-    public function delete(string $path, mixed $handler): Route
-    {
-        return $this->add('DELETE', $path, $handler);
-    }
-
-    public function add(string $method, string $path, mixed $handler): Route
-    {
-        $fullPath = $this->groupPrefix . $path;
-        $fullPath = '/' . trim($fullPath, '/');
-        if ($fullPath === '/') {
-            $fullPath = '/';
-        }
-        $route = new Route($method, $fullPath, $handler);
-        if ($this->groupMiddleware !== []) {
-            $route->middleware($this->groupMiddleware);
-        }
-        $this->routes[] = $route;
-        return $route;
     }
 
     /**
-     * @param array{prefix?:string,middleware?:array<class-string<MiddlewareInterface>>} $attributes
+     * @param array{0:string,1:string} $handler [ControllerClass, method]
+     * @param array<int,string>        $middleware
      */
-    public function group(array $attributes, callable $callback): void
+    public function get(string $path, array $handler, array $middleware = []): void
     {
-        $previousPrefix = $this->groupPrefix;
-        $previousMiddleware = $this->groupMiddleware;
-
-        $this->groupPrefix = $previousPrefix . ($attributes['prefix'] ?? '');
-        $this->groupMiddleware = array_merge($previousMiddleware, $attributes['middleware'] ?? []);
-
-        $callback($this);
-
-        $this->groupPrefix = $previousPrefix;
-        $this->groupMiddleware = $previousMiddleware;
+        $this->add('GET', $path, $handler, $middleware);
     }
 
     /**
-     * @return array{route:Route,params:array<string,string>}|null
+     * @param array{0:string,1:string} $handler
+     * @param array<int,string>        $middleware
      */
-    public function match(Request $request): ?array
+    public function post(string $path, array $handler, array $middleware = []): void
     {
-        $path = $request->path();
+        $this->add('POST', $path, $handler, $middleware);
+    }
+
+    /**
+     * @param array{0:string,1:string} $handler
+     * @param array<int,string>        $middleware
+     */
+    public function add(string $method, string $path, array $handler, array $middleware = []): void
+    {
+        $params = [];
+        $regex = preg_replace_callback(
+            '/\{([a-zA-Z_][a-zA-Z0-9_]*)\}/',
+            static function (array $m) use (&$params): string {
+                $params[] = $m[1];
+                return '([^/]+)';
+            },
+            '/' . trim($path, '/')
+        );
+
+        $this->routes[] = [
+            'method'     => strtoupper($method),
+            'pattern'    => $path,
+            'regex'      => '#^' . $regex . '$#',
+            'params'     => $params,
+            'handler'    => $handler,
+            'middleware' => $middleware,
+        ];
+    }
+
+    public function dispatch(Request $request): Response
+    {
         $method = $request->method();
+        $path   = $request->path();
+
+        $methodMatched = false;
+
         foreach ($this->routes as $route) {
-            $params = $route->match($method, $path);
-            if ($params !== null) {
-                return ['route' => $route, 'params' => $params];
+            if (!preg_match($route['regex'], $path, $matches)) {
+                continue;
             }
+
+            if ($route['method'] !== $method) {
+                $methodMatched = true;
+                continue;
+            }
+
+            array_shift($matches);
+            $params = array_combine($route['params'], $matches) ?: [];
+
+            return $this->runWithMiddleware($route, $request, $params);
         }
-        return null;
+
+        throw new HttpException($methodMatched ? 405 : 404);
     }
 
-    public function pathMatchesAnyMethod(string $path): bool
+    /**
+     * @param array{handler:array{0:string,1:string},middleware:array<int,string>} $route
+     * @param array<string, string> $params
+     */
+    private function runWithMiddleware(array $route, Request $request, array $params): Response
     {
-        foreach ($this->routes as $route) {
-            if ($route->match($route->getMethod(), $path) !== null) {
-                return true;
+        foreach ($route['middleware'] as $middlewareId) {
+            $middleware = $this->resolveMiddleware($middlewareId);
+            $result = $middleware->handle($request, $params);
+
+            if ($result instanceof Response) {
+                return $result;
             }
         }
-        return false;
+
+        [$class, $action] = $route['handler'];
+        return $this->invokeAction($class, $action, $request, $params);
     }
 
-    public function url(string $name, array $params = []): string
+    /**
+     * Resolve a middleware id. The "perm:<slug>" convention builds a permission
+     * gate bound to the required permission slug.
+     */
+    private function resolveMiddleware(string $id): \ParagonHostOps\Middleware\MiddlewareInterface
     {
-        foreach ($this->routes as $route) {
-            if ($route->getName() === $name) {
-                $path = $route->getPath();
-                foreach ($params as $key => $value) {
-                    $path = str_replace('{' . $key . '}', (string) $value, $path);
-                }
-                return $path;
-            }
+        if (str_starts_with($id, 'perm:')) {
+            $permission = substr($id, 5);
+            return new \ParagonHostOps\Middleware\PermissionMiddleware(
+                $this->container->get(\ParagonHostOps\Services\Auth::class),
+                $permission
+            );
         }
-        throw new RuntimeException("No route named [$name].");
+
+        /** @var \ParagonHostOps\Middleware\MiddlewareInterface */
+        return $this->container->get($id);
+    }
+
+    /**
+     * @param array<string, string> $params
+     */
+    private function invokeAction(string $class, string $action, Request $request, array $params): Response
+    {
+
+        $controller = $this->container->has($class)
+            ? $this->container->get($class)
+            : new $class();
+
+        $result = $controller->{$action}($request, $params);
+
+        if ($result instanceof Response) {
+            return $result;
+        }
+
+        return Response::html((string) $result);
     }
 }
