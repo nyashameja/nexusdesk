@@ -86,8 +86,11 @@ protected by the same middleware pattern.
    bandwidth, SSL, packages) with run history, advisory locking, CLI runner
    (`bin/sync.php`) and a secret-protected web cron endpoint
    (`public/cron.php`). ✅
-3. **Hosting dashboard** — executive dashboard, accounts table + detail,
-   charts, filters/sort/pagination.
+3. **Hosting dashboard** — executive dashboard with six Chart.js charts (disk,
+   bandwidth, package mix, active/suspended, SSL distribution, growth), the
+   attention list, and the full accounts table (search + 7 filters + sortable
+   columns + pagination) plus the read-only account-detail screen with a
+   "refresh account data" re-sync. ✅
 4. **Business modules** — CRM, domains, SSL centre, email summary, WordPress
    registry, finance, health score.
 5. **Monitoring & reporting** — uptime, security centre, notifications,

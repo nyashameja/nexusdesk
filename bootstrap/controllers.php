@@ -8,7 +8,6 @@ use ParagonHostOps\Controllers\DashboardController;
 use ParagonHostOps\Controllers\SettingsController;
 use ParagonHostOps\Controllers\SyncController;
 use ParagonHostOps\Core\Container;
-use ParagonHostOps\Core\Database;
 use ParagonHostOps\Repositories\AccountRepository;
 use ParagonHostOps\Repositories\CapabilityRepository;
 use ParagonHostOps\Repositories\SyncRepository;
@@ -43,7 +42,9 @@ $container->bind(SettingsController::class, static fn (Container $c): SettingsCo
 ));
 
 $container->bind(AccountsController::class, static fn (Container $c): AccountsController => new AccountsController(
-    $c->get(Database::class),
+    $c->get(AccountRepository::class),
+    $c->get(SyncService::class),
+    $c->get(AuditLogger::class),
 ));
 
 $container->bind(SyncController::class, static fn (Container $c): SyncController => new SyncController(

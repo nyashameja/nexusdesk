@@ -27,13 +27,27 @@ final class DashboardController extends Controller
         $summary = $this->accounts->summary();
         $ssl     = $this->accounts->sslSummary();
 
+        // Chart datasets, assembled server-side and passed to Chart.js via a
+        // JSON data island (keeps all scripts external for the strict CSP).
+        $charts = [
+            'diskByAccount'      => $this->accounts->topDiskUsage(8),
+            'bandwidthByAccount' => $this->accounts->topBandwidthUsage(8),
+            'byPackage'          => $this->accounts->countByPackage(),
+            'activeSuspended'    => ['active' => $summary['active'], 'suspended' => $summary['suspended']],
+            'sslDistribution'    => $this->accounts->sslDistribution(),
+            'createdOverTime'    => $this->accounts->createdOverTime(),
+        ];
+
         return $this->view('dashboard.index', [
-            'title'        => 'Overview',
-            'summary'      => $summary,
-            'ssl'          => $ssl,
-            'packageCount' => $this->accounts->packageCount(),
-            'lastSync'     => $this->accounts->lastSyncAt(),
-            'whmConfigured'=> $this->whm->isConfigured(),
+            'title'         => 'Overview',
+            'summary'       => $summary,
+            'ssl'           => $ssl,
+            'packageCount'  => $this->accounts->packageCount(),
+            'lastSync'      => $this->accounts->lastSyncAt(),
+            'whmConfigured' => $this->whm->isConfigured(),
+            'attention'     => $this->accounts->attentionList(10),
+            'charts'        => $charts,
+            'scripts'       => ['assets/js/chart.umd.js', 'assets/js/dashboard.js'],
         ]);
     }
 }

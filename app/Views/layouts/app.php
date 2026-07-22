@@ -27,5 +27,8 @@ $title = $title ?? 'Overview';
     </div>
 </div>
 <script src="<?= e(url('assets/js/app.js')) ?>"></script>
+<?php foreach (($scripts ?? []) as $script): ?>
+<script src="<?= e(url($script)) ?>"></script>
+<?php endforeach; ?>
 </body>
 </html>

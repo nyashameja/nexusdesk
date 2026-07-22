@@ -229,4 +229,291 @@ final class AccountRepository
             array_merge([$serverId], $keepUsernames)
         );
     }
+
+    // ---------------------------------------------------------------------
+    // Dashboard chart data (all read-only, from the cache)
+    // ---------------------------------------------------------------------
+
+    /**
+     * Top accounts by disk usage.
+     *
+     * @return array<int, array{domain:string, used:int, limit:int, percent:float}>
+     */
+    public function topDiskUsage(int $limit = 8): array
+    {
+        $limit = max(1, min($limit, 25));
+        $rows = $this->db->all(
+            "SELECT a.domain, COALESCE(u.disk_used_mb,0) AS used, COALESCE(u.disk_limit_mb,0) AS lim
+               FROM whm_accounts a
+          LEFT JOIN whm_account_usage u ON u.account_id = a.id
+              WHERE a.deleted_at IS NULL
+           ORDER BY used DESC
+              LIMIT {$limit}"
+        );
+        return array_map($this->usageRow(...), $rows);
+    }
+
+    /**
+     * Top accounts by bandwidth usage.
+     *
+     * @return array<int, array{domain:string, used:int, limit:int, percent:float}>
+     */
+    public function topBandwidthUsage(int $limit = 8): array
+    {
+        $limit = max(1, min($limit, 25));
+        $rows = $this->db->all(
+            "SELECT a.domain, COALESCE(u.bandwidth_used_mb,0) AS used, COALESCE(u.bandwidth_limit_mb,0) AS lim
+               FROM whm_accounts a
+          LEFT JOIN whm_account_usage u ON u.account_id = a.id
+              WHERE a.deleted_at IS NULL
+           ORDER BY used DESC
+              LIMIT {$limit}"
+        );
+        return array_map($this->usageRow(...), $rows);
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     * @return array{domain:string, used:int, limit:int, percent:float}
+     */
+    private function usageRow(array $row): array
+    {
+        $used  = (int) $row['used'];
+        $limit = (int) $row['lim'];
+        return [
+            'domain'  => (string) $row['domain'],
+            'used'    => $used,
+            'limit'   => $limit,
+            'percent' => $limit > 0 ? round(($used / $limit) * 100, 1) : 0.0,
+        ];
+    }
+
+    /**
+     * Account counts grouped by package.
+     *
+     * @return array<int, array{package:string, total:int}>
+     */
+    public function countByPackage(): array
+    {
+        $rows = $this->db->all(
+            "SELECT COALESCE(NULLIF(package,''),'Unassigned') AS package, COUNT(*) AS total
+               FROM whm_accounts
+              WHERE deleted_at IS NULL
+           GROUP BY package
+           ORDER BY total DESC"
+        );
+        return array_map(static fn (array $r): array => [
+            'package' => (string) $r['package'],
+            'total'   => (int) $r['total'],
+        ], $rows);
+    }
+
+    /**
+     * SSL status distribution across cached certificates.
+     *
+     * @return array<string, int>
+     */
+    public function sslDistribution(): array
+    {
+        $rows = $this->db->all(
+            'SELECT status, COUNT(*) AS total FROM whm_ssl_certificates GROUP BY status'
+        );
+        $out = [];
+        foreach ($rows as $r) {
+            $out[(string) $r['status']] = (int) $r['total'];
+        }
+        return $out;
+    }
+
+    /**
+     * Accounts created per month (last 12 months with data).
+     *
+     * @return array<int, array{month:string, total:int}>
+     */
+    public function createdOverTime(): array
+    {
+        $rows = $this->db->all(
+            "SELECT DATE_FORMAT(whm_created_at, '%Y-%m') AS month, COUNT(*) AS total
+               FROM whm_accounts
+              WHERE deleted_at IS NULL AND whm_created_at IS NOT NULL
+           GROUP BY month
+           ORDER BY month ASC
+              LIMIT 24"
+        );
+        return array_map(static fn (array $r): array => [
+            'month' => (string) $r['month'],
+            'total' => (int) $r['total'],
+        ], $rows);
+    }
+
+    /**
+     * Accounts requiring attention (high usage, suspended, SSL issues).
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function attentionList(int $limit = 12): array
+    {
+        $limit = max(1, min($limit, 100));
+        return $this->db->all(
+            "SELECT a.id, a.domain, a.username, a.suspended, a.ssl_status,
+                    COALESCE(u.disk_used_mb,0) AS disk_used, COALESCE(u.disk_limit_mb,0) AS disk_limit,
+                    COALESCE(u.bandwidth_used_mb,0) AS bw_used, COALESCE(u.bandwidth_limit_mb,0) AS bw_limit,
+                    (SELECT MIN(s.days_remaining) FROM whm_ssl_certificates s WHERE s.account_id = a.id) AS ssl_days
+               FROM whm_accounts a
+          LEFT JOIN whm_account_usage u ON u.account_id = a.id
+              WHERE a.deleted_at IS NULL
+                AND (
+                    a.suspended = 1
+                    OR (u.disk_limit_mb > 0 AND u.disk_used_mb / u.disk_limit_mb >= 0.8)
+                    OR (u.bandwidth_limit_mb > 0 AND u.bandwidth_used_mb / u.bandwidth_limit_mb >= 0.8)
+                    OR a.ssl_status IN ('expired','invalid','missing','expiring')
+                )
+           ORDER BY a.suspended DESC, (u.disk_used_mb / NULLIF(u.disk_limit_mb,0)) DESC
+              LIMIT {$limit}"
+        );
+    }
+
+    // ---------------------------------------------------------------------
+    // Filtered, sorted, paginated listing for the accounts table
+    // ---------------------------------------------------------------------
+
+    /** Sortable columns, whitelisted to prevent SQL injection via sort key. */
+    private const SORTABLE = [
+        'domain'    => 'a.domain',
+        'package'   => 'a.package',
+        'disk'      => 'disk_percent',
+        'bandwidth' => 'bw_percent',
+        'created'   => 'a.whm_created_at',
+        'status'    => 'a.suspended',
+    ];
+
+    /**
+     * @param array<string, string> $filters
+     * @return array{rows:array<int,array<string,mixed>>, total:int}
+     */
+    public function search(array $filters, string $sort, string $dir, int $page, int $perPage): array
+    {
+        $conditions = ['a.deleted_at IS NULL'];
+        $args = [];
+
+        if (($q = trim($filters['q'] ?? '')) !== '') {
+            $conditions[] = '(a.domain LIKE ? OR a.username LIKE ? OR a.email LIKE ?)';
+            $like = '%' . $q . '%';
+            array_push($args, $like, $like, $like);
+        }
+        if (($pkg = trim($filters['package'] ?? '')) !== '') {
+            $conditions[] = 'a.package = ?';
+            $args[] = $pkg;
+        }
+        if (($status = $filters['status'] ?? '') === 'active') {
+            $conditions[] = 'a.suspended = 0';
+        } elseif ($status === 'suspended') {
+            $conditions[] = 'a.suspended = 1';
+        }
+        if (($filters['disk'] ?? '') === 'high') {
+            $conditions[] = 'u.disk_limit_mb > 0 AND u.disk_used_mb / u.disk_limit_mb >= 0.8';
+        }
+        if (($filters['bandwidth'] ?? '') === 'high') {
+            $conditions[] = 'u.bandwidth_limit_mb > 0 AND u.bandwidth_used_mb / u.bandwidth_limit_mb >= 0.8';
+        }
+        if (($ssl = $filters['ssl'] ?? '') !== '') {
+            if ($ssl === 'attention') {
+                $conditions[] = "a.ssl_status IN ('expired','invalid','missing','expiring')";
+            } else {
+                $conditions[] = 'a.ssl_status = ?';
+                $args[] = $ssl;
+            }
+        }
+        if (($linked = $filters['linked'] ?? '') === 'linked') {
+            $conditions[] = 'a.client_id IS NOT NULL';
+        } elseif ($linked === 'unlinked') {
+            $conditions[] = 'a.client_id IS NULL';
+        }
+
+        $where = implode(' AND ', $conditions);
+
+        $sortColumn = self::SORTABLE[$sort] ?? 'a.domain';
+        $sortDir    = strtolower($dir) === 'desc' ? 'DESC' : 'ASC';
+
+        $page    = max(1, $page);
+        $perPage = max(5, min($perPage, 100));
+        $offset  = ($page - 1) * $perPage;
+
+        $total = (int) ($this->db->first(
+            "SELECT COUNT(*) AS c
+               FROM whm_accounts a
+          LEFT JOIN whm_account_usage u ON u.account_id = a.id
+              WHERE {$where}",
+            $args
+        )['c'] ?? 0);
+
+        $rows = $this->db->all(
+            "SELECT a.*, c.company_name, c.first_name, c.last_name,
+                    COALESCE(u.disk_used_mb,0) AS disk_used_mb, COALESCE(u.disk_limit_mb,0) AS disk_limit_mb,
+                    COALESCE(u.bandwidth_used_mb,0) AS bandwidth_used_mb, COALESCE(u.bandwidth_limit_mb,0) AS bandwidth_limit_mb,
+                    CASE WHEN u.disk_limit_mb > 0 THEN u.disk_used_mb / u.disk_limit_mb ELSE 0 END AS disk_percent,
+                    CASE WHEN u.bandwidth_limit_mb > 0 THEN u.bandwidth_used_mb / u.bandwidth_limit_mb ELSE 0 END AS bw_percent
+               FROM whm_accounts a
+          LEFT JOIN whm_account_usage u ON u.account_id = a.id
+          LEFT JOIN clients c ON c.id = a.client_id
+              WHERE {$where}
+           ORDER BY {$sortColumn} {$sortDir}, a.domain ASC
+              LIMIT {$perPage} OFFSET {$offset}",
+            $args
+        );
+
+        return ['rows' => $rows, 'total' => $total];
+    }
+
+    /**
+     * Distinct package names present in the cache (for the filter dropdown).
+     *
+     * @return array<int, string>
+     */
+    public function distinctPackages(): array
+    {
+        $rows = $this->db->all(
+            "SELECT DISTINCT package FROM whm_accounts
+              WHERE deleted_at IS NULL AND package IS NOT NULL AND package <> ''
+           ORDER BY package"
+        );
+        return array_map(static fn (array $r): string => (string) $r['package'], $rows);
+    }
+
+    /**
+     * Full account detail with usage, SSL certificates and linked client.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function detail(int $id): ?array
+    {
+        $account = $this->db->first(
+            "SELECT a.*, c.id AS client_id_linked, c.company_name, c.first_name, c.last_name, c.primary_email AS client_email,
+                    u.disk_used_mb, u.disk_limit_mb, u.bandwidth_used_mb, u.bandwidth_limit_mb, u.email_accounts, u.captured_at,
+                    s.name AS server_name, s.hostname AS server_hostname
+               FROM whm_accounts a
+          LEFT JOIN clients c ON c.id = a.client_id
+          LEFT JOIN whm_account_usage u ON u.account_id = a.id
+          LEFT JOIN servers s ON s.id = a.server_id
+              WHERE a.id = ? AND a.deleted_at IS NULL
+              LIMIT 1",
+            [$id]
+        );
+
+        if ($account === null) {
+            return null;
+        }
+
+        $account['ssl_certs'] = $this->db->all(
+            'SELECT * FROM whm_ssl_certificates WHERE account_id = ? ORDER BY valid_to ASC',
+            [$id]
+        );
+
+        $account['subscription'] = $this->db->first(
+            "SELECT * FROM subscriptions WHERE account_id = ? AND deleted_at IS NULL ORDER BY id DESC LIMIT 1",
+            [$id]
+        );
+
+        return $account;
+    }
 }

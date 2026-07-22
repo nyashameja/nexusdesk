@@ -5,10 +5,17 @@
 /** @var int $packageCount */
 /** @var string|null $lastSync */
 /** @var bool $whmConfigured */
+/** @var array<int,array<string,mixed>> $attention */
+/** @var array<string,mixed> $charts */
 $this->layout('layouts.app');
 
 $fmtGb = static fn (float $mb): string => number_format($mb / 1024, 1) . ' GB';
 $hasData = ($summary['total'] ?? 0) > 0;
+
+$pct = static function ($used, $limit): int {
+    $used = (float) $used; $limit = (float) $limit;
+    return $limit > 0 ? (int) min(100, round(($used / $limit) * 100)) : 0;
+};
 ?>
 <div class="pg-page-head">
     <div>
@@ -32,8 +39,8 @@ $hasData = ($summary['total'] ?? 0) > 0;
         <div class="pg-card-body">
             <div class="pg-alert info mb-0">
                 <span>
-                    No cached hosting data yet. Once WHM credentials are configured and a synchronisation
-                    has run, live figures will appear here. Until then all counters read zero.
+                    No cached hosting data yet. Configure WHM credentials and run a
+                    <a href="<?= e(url('/sync')) ?>">synchronisation</a> — live figures and charts will appear here.
                 </span>
             </div>
         </div>
@@ -86,26 +93,75 @@ $hasData = ($summary['total'] ?? 0) > 0;
     </div>
 </div>
 
+<!-- Charts -->
+<div class="pg-grid cols-2 mb-3">
+    <div class="pg-card">
+        <div class="pg-card-head">Disk usage by account</div>
+        <div class="pg-card-body"><div style="height:240px"><canvas id="chartDisk"></canvas></div></div>
+    </div>
+    <div class="pg-card">
+        <div class="pg-card-head">Bandwidth usage by account</div>
+        <div class="pg-card-body"><div style="height:240px"><canvas id="chartBandwidth"></canvas></div></div>
+    </div>
+</div>
+
+<div class="pg-grid cols-3 mb-3">
+    <div class="pg-card">
+        <div class="pg-card-head">Accounts by package</div>
+        <div class="pg-card-body"><div style="height:220px"><canvas id="chartPackage"></canvas></div></div>
+    </div>
+    <div class="pg-card">
+        <div class="pg-card-head">Active vs suspended</div>
+        <div class="pg-card-body"><div style="height:220px"><canvas id="chartStatus"></canvas></div></div>
+    </div>
+    <div class="pg-card">
+        <div class="pg-card-head">SSL status distribution</div>
+        <div class="pg-card-body"><div style="height:220px"><canvas id="chartSsl"></canvas></div></div>
+    </div>
+</div>
+
 <div class="pg-grid cols-2">
     <div class="pg-card">
-        <div class="pg-card-head">Accounts requiring attention</div>
-        <div class="pg-card-body">
-            <?php if (!$hasData): ?>
-                <div class="pg-empty"><span class="ic">◎</span><h3>Nothing to show yet</h3><p>Attention items appear here after the first synchronisation.</p></div>
+        <div class="pg-card-head">Accounts created over time</div>
+        <div class="pg-card-body"><div style="height:230px"><canvas id="chartCreated"></canvas></div></div>
+    </div>
+
+    <div class="pg-card">
+        <div class="pg-card-head flex justify-between items-center">
+            <span>Accounts requiring attention</span>
+            <a class="pg-btn ghost" href="<?= e(url('/accounts?ssl=attention')) ?>" style="padding:4px 10px">View all</a>
+        </div>
+        <div class="pg-table-wrap">
+            <?php if (empty($attention)): ?>
+                <div class="pg-empty"><span class="ic">◎</span><h3><?= $hasData ? 'All clear' : 'Nothing to show yet' ?></h3><p><?= $hasData ? 'No accounts currently require attention.' : 'Attention items appear after the first synchronisation.' ?></p></div>
             <?php else: ?>
-                <p class="pg-soft mb-0">High-usage, suspended and SSL-attention accounts are listed in the
-                    <a href="<?= e(url('/accounts')) ?>">Hosting Accounts</a> module with dedicated filters.</p>
+                <table class="pg-table">
+                    <thead><tr><th>Domain</th><th>Issue</th></tr></thead>
+                    <tbody>
+                    <?php foreach ($attention as $a):
+                        $dp = $pct($a['disk_used'] ?? 0, $a['disk_limit'] ?? 0);
+                        $bp = $pct($a['bw_used'] ?? 0, $a['bw_limit'] ?? 0);
+                        $issues = [];
+                        if ((int) ($a['suspended'] ?? 0) === 1) { $issues[] = '<span class="pg-badge danger">Suspended</span>'; }
+                        if ($dp >= 80) { $issues[] = '<span class="pg-badge warn">Disk ' . $dp . '%</span>'; }
+                        if ($bp >= 80) { $issues[] = '<span class="pg-badge warn">Bandwidth ' . $bp . '%</span>'; }
+                        $sslDays = $a['ssl_days'];
+                        if (in_array($a['ssl_status'] ?? '', ['expired','invalid','missing'], true)) {
+                            $issues[] = '<span class="pg-badge danger">SSL ' . e((string) $a['ssl_status']) . '</span>';
+                        } elseif ($a['ssl_status'] === 'expiring' || ($sslDays !== null && $sslDays <= 30)) {
+                            $issues[] = '<span class="pg-badge warn">SSL ' . ($sslDays !== null ? (int) $sslDays . 'd' : 'soon') . '</span>';
+                        }
+                    ?>
+                        <tr>
+                            <td><a href="<?= e(url('/accounts/' . (int) $a['id'])) ?>"><?= e($a['domain']) ?></a></td>
+                            <td class="flex flex-wrap gap-2"><?= implode(' ', $issues) ?: '<span class="pg-soft">—</span>' ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
             <?php endif; ?>
         </div>
     </div>
-    <div class="pg-card">
-        <div class="pg-card-head">Quick filters</div>
-        <div class="pg-card-body flex flex-wrap gap-2">
-            <a class="pg-btn" href="<?= e(url('/accounts')) ?>">All accounts</a>
-            <a class="pg-btn" href="<?= e(url('/accounts?filter=active')) ?>">Active</a>
-            <a class="pg-btn" href="<?= e(url('/accounts?filter=suspended')) ?>">Suspended</a>
-            <a class="pg-btn" href="<?= e(url('/accounts?filter=high_disk')) ?>">High disk</a>
-            <a class="pg-btn" href="<?= e(url('/accounts?filter=ssl')) ?>">SSL attention</a>
-        </div>
-    </div>
 </div>
+
+<script type="application/json" id="pg-dashboard-data"><?= json_encode($charts, JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>

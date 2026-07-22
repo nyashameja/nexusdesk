@@ -31,6 +31,8 @@ return static function (Router $router): void {
 
     // --- Hosting accounts (cached, read-only) ---
     $router->get('/accounts', [AccountsController::class, 'index'], [AuthMiddleware::class, 'perm:accounts.view']);
+    $router->get('/accounts/{id}', [AccountsController::class, 'show'], [AuthMiddleware::class, 'perm:accounts.view']);
+    $router->post('/accounts/{id}/refresh', [AccountsController::class, 'refresh'], [VerifyCsrfMiddleware::class, AuthMiddleware::class, 'perm:sync.run']);
 
     // --- Synchronisation (read-only) ---
     $router->get('/sync', [SyncController::class, 'index'], [AuthMiddleware::class, 'perm:sync.view']);

@@ -18,9 +18,10 @@ clients and financials.
 - PDO with prepared statements, PHP cURL for WHM
 - Custom lightweight MVC-inspired architecture (no framework, no Node runtime,
   no Docker required in production)
-- Bespoke, self-hosted CSS/JS front end (Chart.js is added, vendored locally,
-  in the hosting-dashboard phase) — nothing loads from a CDN, so a strict
-  Content-Security-Policy can be enforced.
+- Bespoke, self-hosted CSS/JS front end. Chart.js 4.4 (MIT) is vendored locally
+  at `public/assets/js/chart.umd.js` — nothing loads from a CDN, so a strict
+  Content-Security-Policy (`script-src 'self'`) is enforced. Dashboard chart
+  data is passed to Chart.js via a JSON data island, never inline script.
 
 ## 2. Directory layout
 
