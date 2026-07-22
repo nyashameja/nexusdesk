@@ -7,9 +7,13 @@ use ParagonHostOps\Controllers\AuthController;
 use ParagonHostOps\Controllers\ClientsController;
 use ParagonHostOps\Controllers\DashboardController;
 use ParagonHostOps\Controllers\DomainsController;
+use ParagonHostOps\Controllers\EmailController;
+use ParagonHostOps\Controllers\FinanceController;
+use ParagonHostOps\Controllers\HealthController;
 use ParagonHostOps\Controllers\SettingsController;
 use ParagonHostOps\Controllers\SslController;
 use ParagonHostOps\Controllers\SyncController;
+use ParagonHostOps\Controllers\WordpressController;
 use ParagonHostOps\Core\Router;
 use ParagonHostOps\Middleware\AuthMiddleware;
 use ParagonHostOps\Middleware\GuestMiddleware;
@@ -58,6 +62,28 @@ return static function (Router $router): void {
 
     // --- SSL Centre (read-only) ---
     $router->get('/ssl', [SslController::class, 'index'], [AuthMiddleware::class, 'perm:ssl.view']);
+
+    // --- Email Centre (read-only summary) ---
+    $router->get('/email', [EmailController::class, 'index'], [AuthMiddleware::class, 'perm:email.view']);
+
+    // --- WordPress registry (manual) ---
+    $router->get('/wordpress', [WordpressController::class, 'index'], [AuthMiddleware::class, 'perm:wordpress.view']);
+    $router->get('/wordpress/create', [WordpressController::class, 'create'], [AuthMiddleware::class, 'perm:wordpress.manage']);
+    $router->post('/wordpress', [WordpressController::class, 'store'], [VerifyCsrfMiddleware::class, AuthMiddleware::class, 'perm:wordpress.manage']);
+    $router->get('/wordpress/{id}/edit', [WordpressController::class, 'edit'], [AuthMiddleware::class, 'perm:wordpress.manage']);
+    $router->add('PUT', '/wordpress/{id}', [WordpressController::class, 'update'], [VerifyCsrfMiddleware::class, AuthMiddleware::class, 'perm:wordpress.manage']);
+
+    // --- Finance ---
+    $router->get('/finance', [FinanceController::class, 'index'], [AuthMiddleware::class, 'perm:finance.view']);
+    $router->get('/finance/subscriptions', [FinanceController::class, 'subscriptions'], [AuthMiddleware::class, 'perm:finance.view']);
+    $router->get('/finance/subscriptions/create', [FinanceController::class, 'create'], [AuthMiddleware::class, 'perm:finance.manage']);
+    $router->post('/finance/subscriptions', [FinanceController::class, 'store'], [VerifyCsrfMiddleware::class, AuthMiddleware::class, 'perm:finance.manage']);
+    $router->get('/finance/subscriptions/{id}/edit', [FinanceController::class, 'edit'], [AuthMiddleware::class, 'perm:finance.manage']);
+    $router->add('PUT', '/finance/subscriptions/{id}', [FinanceController::class, 'update'], [VerifyCsrfMiddleware::class, AuthMiddleware::class, 'perm:finance.manage']);
+
+    // --- Client health ---
+    $router->get('/health', [HealthController::class, 'index'], [AuthMiddleware::class, 'perm:health.view']);
+    $router->post('/health/recompute', [HealthController::class, 'recompute'], [VerifyCsrfMiddleware::class, AuthMiddleware::class, 'perm:health.view']);
 
     // --- Synchronisation (read-only) ---
     $router->get('/sync', [SyncController::class, 'index'], [AuthMiddleware::class, 'perm:sync.view']);

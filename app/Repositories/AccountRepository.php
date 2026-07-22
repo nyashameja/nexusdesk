@@ -481,6 +481,39 @@ final class AccountRepository
     }
 
     /**
+     * Email-account summary per hosting account (where the token exposes it).
+     *
+     * @return array{rows:array<int,array<string,mixed>>, total_mailboxes:int, with_data:int, accounts:int}
+     */
+    public function emailSummary(): array
+    {
+        $rows = $this->db->all(
+            "SELECT a.id, a.domain, a.username, u.email_accounts, u.captured_at
+               FROM whm_accounts a
+          LEFT JOIN whm_account_usage u ON u.account_id = a.id
+              WHERE a.deleted_at IS NULL
+           ORDER BY (u.email_accounts IS NULL), u.email_accounts DESC, a.domain
+              LIMIT 500"
+        );
+
+        $agg = $this->db->first(
+            "SELECT COALESCE(SUM(u.email_accounts),0) AS total,
+                    SUM(CASE WHEN u.email_accounts IS NOT NULL THEN 1 ELSE 0 END) AS with_data,
+                    COUNT(*) AS accounts
+               FROM whm_accounts a
+          LEFT JOIN whm_account_usage u ON u.account_id = a.id
+              WHERE a.deleted_at IS NULL"
+        ) ?? [];
+
+        return [
+            'rows'            => $rows,
+            'total_mailboxes' => (int) ($agg['total'] ?? 0),
+            'with_data'       => (int) ($agg['with_data'] ?? 0),
+            'accounts'        => (int) ($agg['accounts'] ?? 0),
+        ];
+    }
+
+    /**
      * Full account detail with usage, SSL certificates and linked client.
      *
      * @return array<string, mixed>|null

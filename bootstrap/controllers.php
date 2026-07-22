@@ -7,18 +7,26 @@ use ParagonHostOps\Controllers\AuthController;
 use ParagonHostOps\Controllers\ClientsController;
 use ParagonHostOps\Controllers\DashboardController;
 use ParagonHostOps\Controllers\DomainsController;
+use ParagonHostOps\Controllers\EmailController;
+use ParagonHostOps\Controllers\FinanceController;
+use ParagonHostOps\Controllers\HealthController;
 use ParagonHostOps\Controllers\SettingsController;
 use ParagonHostOps\Controllers\SslController;
 use ParagonHostOps\Controllers\SyncController;
+use ParagonHostOps\Controllers\WordpressController;
 use ParagonHostOps\Core\Container;
 use ParagonHostOps\Repositories\AccountRepository;
 use ParagonHostOps\Repositories\CapabilityRepository;
 use ParagonHostOps\Repositories\ClientRepository;
 use ParagonHostOps\Repositories\DomainRepository;
+use ParagonHostOps\Repositories\FinancialRepository;
+use ParagonHostOps\Repositories\HealthRepository;
 use ParagonHostOps\Repositories\SslRepository;
 use ParagonHostOps\Repositories\SyncRepository;
+use ParagonHostOps\Repositories\WordpressRepository;
 use ParagonHostOps\Services\AuditLogger;
 use ParagonHostOps\Services\Auth;
+use ParagonHostOps\Services\HealthScoreService;
 use ParagonHostOps\Services\Whm\CapabilityChecker;
 use ParagonHostOps\Services\Whm\ConnectionTester;
 use ParagonHostOps\Services\Whm\SyncService;
@@ -74,4 +82,26 @@ $container->bind(DomainsController::class, static fn (Container $c): DomainsCont
 
 $container->bind(SslController::class, static fn (Container $c): SslController => new SslController(
     $c->get(SslRepository::class),
+));
+
+$container->bind(EmailController::class, static fn (Container $c): EmailController => new EmailController(
+    $c->get(AccountRepository::class),
+));
+
+$container->bind(WordpressController::class, static fn (Container $c): WordpressController => new WordpressController(
+    $c->get(WordpressRepository::class),
+    $c->get(AuditLogger::class),
+));
+
+$container->bind(FinanceController::class, static fn (Container $c): FinanceController => new FinanceController(
+    $c->get(FinancialRepository::class),
+    $c->get(ClientRepository::class),
+    $c->get(DomainRepository::class),
+    $c->get(AuditLogger::class),
+));
+
+$container->bind(HealthController::class, static fn (Container $c): HealthController => new HealthController(
+    $c->get(HealthRepository::class),
+    $c->get(HealthScoreService::class),
+    $c->get(AuditLogger::class),
 ));
