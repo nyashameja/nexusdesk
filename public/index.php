@@ -17,6 +17,17 @@ $root = dirname(__DIR__);
  * (dependencies not installed, storage not writable) into a clear message
  * instead of a blank HTTP 500. They run before anything else is loaded.
  */
+if (PHP_VERSION_ID < 80200) {
+    http_response_code(500);
+    header('Content-Type: text/plain; charset=UTF-8');
+    exit(
+        "Paragon HostOps requires PHP 8.2 or newer.\n\n" .
+        'This server is running PHP ' . PHP_VERSION . ".\n" .
+        "In cPanel, open 'MultiPHP Manager', select this domain, and set the\n" .
+        "PHP version to 8.2 or higher, then reload."
+    );
+}
+
 if (!is_file($root . '/vendor/autoload.php')) {
     http_response_code(500);
     header('Content-Type: text/plain; charset=UTF-8');
