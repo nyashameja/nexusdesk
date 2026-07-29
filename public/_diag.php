@@ -29,9 +29,12 @@ foreach (['pdo_mysql', 'curl', 'json', 'openssl', 'mbstring'] as $ext) {
     echo (extension_loaded($ext) ? $ok : $bad) . "ext {$ext}\n";
 }
 
-// 3. Composer dependencies
-$hasVendor = is_file($root . '/vendor/autoload.php');
-echo ($hasVendor ? $ok : $bad) . "vendor/autoload.php " . ($hasVendor ? "present" : "MISSING — run: composer install --no-dev --optimize-autoloader") . "\n";
+// 3. Autoloader (Composer optional — the app ships a PSR-4 fallback)
+$hasAutoloader = is_file($root . '/bootstrap/autoload.php') && is_file($root . '/app/Helpers/functions.php');
+$hasVendor     = is_file($root . '/vendor/autoload.php');
+echo ($hasAutoloader ? $ok : $bad) . "autoloader " . ($hasAutoloader
+    ? "present (Composer " . ($hasVendor ? "installed" : "not needed — using built-in fallback") . ")"
+    : "MISSING core files — re-upload bootstrap/ and app/") . "\n";
 
 // 4. Storage writable
 foreach (['storage/logs', 'storage/sessions', 'storage/cache'] as $dir) {
@@ -58,9 +61,7 @@ if (is_readable($envPath)) {
 }
 
 // 6. Database connection (reports success/failure only — no credentials)
-if ($hasVendor === false) {
-    echo $warn . "Skipping DB test until Composer is installed.\n";
-} elseif (!extension_loaded('pdo_mysql')) {
+if (!extension_loaded('pdo_mysql')) {
     echo $warn . "Skipping DB test — pdo_mysql not loaded.\n";
 } else {
     $host = $env['DB_HOST'] ?? 'localhost';

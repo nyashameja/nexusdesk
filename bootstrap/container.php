@@ -56,7 +56,7 @@ use ParagonHostOps\Services\Whm\WhmTransportInterface;
  * @return Container
  */
 
-require __DIR__ . '/../vendor/autoload.php';
+require __DIR__ . '/autoload.php';
 
 $root = dirname(__DIR__);
 

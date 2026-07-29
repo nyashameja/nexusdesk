@@ -14,7 +14,7 @@ declare(strict_types=1);
  * ever hard-coded. Delete or restrict this file after creating the first admin.
  */
 
-require __DIR__ . '/../vendor/autoload.php';
+require __DIR__ . '/../bootstrap/autoload.php';
 
 use ParagonHostOps\Core\Config;
 use ParagonHostOps\Core\Database;

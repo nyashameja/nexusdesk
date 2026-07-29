@@ -28,15 +28,15 @@ if (PHP_VERSION_ID < 80200) {
     );
 }
 
-if (!is_file($root . '/vendor/autoload.php')) {
+// The app runs without Composer (it has no runtime deps) via the fallback
+// autoloader; only guard against the files being incompletely uploaded.
+if (!is_file($root . '/bootstrap/autoload.php') || !is_file($root . '/app/Helpers/functions.php')) {
     http_response_code(500);
     header('Content-Type: text/plain; charset=UTF-8');
     exit(
-        "Paragon HostOps is not fully installed.\n\n" .
-        "Composer dependencies are missing (vendor/ is not present).\n" .
-        "Run this once from the application root:\n\n" .
-        "    composer install --no-dev --optimize-autoloader\n\n" .
-        "See README.md > cPanel deployment for details."
+        "Paragon HostOps core files are missing or incompletely uploaded.\n\n" .
+        "Ensure the whole project (app/, bootstrap/, config/, routes/, public/)\n" .
+        "was deployed to the application root. See README.md > cPanel deployment."
     );
 }
 

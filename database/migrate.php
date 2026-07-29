@@ -15,7 +15,7 @@ declare(strict_types=1);
  * required, so this works over cPanel "Terminal" or a Cron Job.
  */
 
-require __DIR__ . '/../vendor/autoload.php';
+require __DIR__ . '/../bootstrap/autoload.php';
 
 use ParagonHostOps\Core\Config;
 use ParagonHostOps\Core\Database;
