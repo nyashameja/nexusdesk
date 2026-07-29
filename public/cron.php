@@ -14,6 +14,7 @@ declare(strict_types=1);
 
 use ParagonHostOps\Core\Config;
 use ParagonHostOps\Core\Container;
+use ParagonHostOps\Services\Domains\DomainExpiryService;
 use ParagonHostOps\Services\Uptime\UptimeService;
 use ParagonHostOps\Services\Whm\SyncService;
 
@@ -51,6 +52,13 @@ switch ($job) {
         $uptime  = $container->get(UptimeService::class);
         $summary = $uptime->checkAll();
         echo json_encode(['job' => 'uptime'] + $summary);
+        break;
+
+    case 'domains':
+        /** @var DomainExpiryService $domains */
+        $domains = $container->get(DomainExpiryService::class);
+        $summary = $domains->checkAll();
+        echo json_encode(['job' => 'domains'] + $summary);
         break;
 
     default:

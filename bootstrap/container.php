@@ -34,6 +34,8 @@ use ParagonHostOps\Repositories\SyncRepository;
 use ParagonHostOps\Repositories\UserRepository;
 use ParagonHostOps\Services\AuditLogger;
 use ParagonHostOps\Services\Auth;
+use ParagonHostOps\Services\Domains\DomainExpiryChecker;
+use ParagonHostOps\Services\Domains\DomainExpiryService;
 use ParagonHostOps\Services\HealthScoreService;
 use ParagonHostOps\Services\Uptime\UptimeChecker;
 use ParagonHostOps\Services\Uptime\UptimeService;
@@ -125,6 +127,13 @@ $container->bind(AuditLogger::class, static function (Container $c): AuditLogger
 });
 
 $container->bind(HealthScoreService::class, static fn (): HealthScoreService => new HealthScoreService());
+
+$container->bind(DomainExpiryChecker::class, static fn (): DomainExpiryChecker => new DomainExpiryChecker());
+$container->bind(DomainExpiryService::class, static fn (Container $c): DomainExpiryService => new DomainExpiryService(
+    $c->get(DomainRepository::class),
+    $c->get(DomainExpiryChecker::class),
+    $c->get(NotificationRepository::class),
+));
 
 $container->bind(UptimeChecker::class, static fn (): UptimeChecker => new UptimeChecker());
 $container->bind(UptimeService::class, static fn (Container $c): UptimeService => new UptimeService(

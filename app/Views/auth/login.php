@@ -12,7 +12,7 @@ $title = 'Sign in';
         <p><?= e($tagline ?? 'Hosting Management &amp; Operations Platform') ?></p>
     </div>
 
-    <div class="pg-card pg-auth">
+    <div class="pg-card">
         <div class="pg-card-body">
             <?php if (!empty($expired)): ?>
                 <div class="pg-alert warn"><span>Your session expired. Please sign in again.</span></div>

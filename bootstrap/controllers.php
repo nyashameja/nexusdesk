@@ -88,6 +88,7 @@ $container->bind(ClientsController::class, static fn (Container $c): ClientsCont
 
 $container->bind(DomainsController::class, static fn (Container $c): DomainsController => new DomainsController(
     $c->get(DomainRepository::class),
+    $c->get(\ParagonHostOps\Services\Domains\DomainExpiryService::class),
     $c->get(AuditLogger::class),
 ));
 

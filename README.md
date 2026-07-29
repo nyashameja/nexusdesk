@@ -134,7 +134,16 @@ No permanent worker is required. Example cPanel cron entries:
 # Same jobs via the web endpoint (when CLI cron is unavailable):
 #   curl -s "https://ops.example.com/cron.php?job=sync&token=YOUR_CRON_SECRET"
 #   curl -s "https://ops.example.com/cron.php?job=uptime&token=YOUR_CRON_SECRET"
+#   curl -s "https://ops.example.com/cron.php?job=domains&token=YOUR_CRON_SECRET"
 ```
+
+**Domain expiry:** the Domains module can look up expiry dates automatically via
+RDAP (with a WHOIS fallback) — no API key required. Use **Check expiry** on a
+domain, **Check all expiry** on the list, or schedule the `domains` cron job
+above (e.g. daily). Expiry updates the stored date + status and raises
+notifications for domains expiring within 30 days or already expired. Some
+ccTLDs (e.g. `.co.za`) do not publish machine-readable expiry; those remain
+manual and are clearly reported as such.
 
 Run synchronisation on demand from **Synchronisation → Synchronise now**, or a
 single account from its detail page. Client health scores can be recomputed

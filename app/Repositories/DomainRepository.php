@@ -138,6 +138,37 @@ final class DomainRepository
     }
 
     /**
+     * All non-deleted domains, minimal fields, for the expiry checker.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function allForCheck(): array
+    {
+        return $this->db->all(
+            'SELECT id, domain, expires_at, registrar, status FROM domains WHERE deleted_at IS NULL ORDER BY id'
+        );
+    }
+
+    /**
+     * Apply an expiry lookup result: always set expiry + status; only overwrite
+     * the registrar when the lookup returned one.
+     */
+    public function applyLookup(int $id, string $expiresAt, ?string $registrar, string $status): void
+    {
+        if ($registrar !== null && $registrar !== '') {
+            $this->db->execute(
+                'UPDATE domains SET expires_at = ?, registrar = ?, status = ?, updated_at = UTC_TIMESTAMP() WHERE id = ? AND deleted_at IS NULL',
+                [$expiresAt, $registrar, $status, $id]
+            );
+        } else {
+            $this->db->execute(
+                'UPDATE domains SET expires_at = ?, status = ?, updated_at = UTC_TIMESTAMP() WHERE id = ? AND deleted_at IS NULL',
+                [$expiresAt, $status, $id]
+            );
+        }
+    }
+
+    /**
      * Client id => display name, for the form dropdown.
      *
      * @return array<int, string>

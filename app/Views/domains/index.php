@@ -26,7 +26,10 @@ $clientName = static fn (array $d): string => trim((string) ($d['company_name'] 
         <p><?= (int) $total ?> domain<?= $total === 1 ? '' : 's' ?> in the local registry.</p>
     </div>
     <?php if ($auth->can('domains.manage')): ?>
-        <a class="pg-btn primary" href="<?= e(url('/domains/create')) ?>">+ Add domain</a>
+        <div class="flex gap-2 flex-wrap">
+            <form method="post" action="<?= e(url('/domains/check-all')) ?>" style="margin:0"><?= csrf_field() ?><button class="pg-btn" type="submit" title="Look up expiry for all domains via RDAP/WHOIS">↻ Check all expiry</button></form>
+            <a class="pg-btn primary" href="<?= e(url('/domains/create')) ?>">+ Add domain</a>
+        </div>
     <?php endif; ?>
 </div>
 

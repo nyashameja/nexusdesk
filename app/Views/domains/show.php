@@ -17,7 +17,10 @@ $days = $d['days_to_expiry'];
         <p><span class="pg-badge neutral"><?= e(ucfirst(str_replace('_', ' ', (string) $d['status']))) ?></span></p>
     </div>
     <?php if ($auth->can('domains.manage')): ?>
-        <a class="pg-btn" href="<?= e(url('/domains/' . (int) $d['id'] . '/edit')) ?>">Edit domain</a>
+        <div class="flex gap-2 flex-wrap">
+            <form method="post" action="<?= e(url('/domains/' . (int) $d['id'] . '/check-expiry')) ?>" style="margin:0"><?= csrf_field() ?><button class="pg-btn" type="submit" title="Look up expiry via RDAP/WHOIS">↻ Check expiry</button></form>
+            <a class="pg-btn" href="<?= e(url('/domains/' . (int) $d['id'] . '/edit')) ?>">Edit domain</a>
+        </div>
     <?php endif; ?>
 </div>
 

@@ -39,7 +39,7 @@ $hasFilters = trim(implode('', $filters)) !== '';
 <!-- Filter panel -->
 <div class="pg-card mb-3">
     <div class="pg-card-body">
-        <form method="get" action="<?= e(url('/accounts')) ?>" class="pg-grid" style="grid-template-columns:repeat(4,1fr);gap:12px;align-items:end">
+        <form method="get" action="<?= e(url('/accounts')) ?>" class="pg-form-grid">
             <div class="pg-field" style="margin:0;grid-column:span 2">
                 <label>Search</label>
                 <input class="pg-input" type="text" name="q" value="<?= e($filters['q']) ?>" placeholder="Domain, username or email">

@@ -10,6 +10,7 @@ use ParagonHostOps\Core\Request;
 use ParagonHostOps\Core\Response;
 use ParagonHostOps\Repositories\DomainRepository;
 use ParagonHostOps\Services\AuditLogger;
+use ParagonHostOps\Services\Domains\DomainExpiryService;
 use ParagonHostOps\Validators\Validator;
 
 /**
@@ -23,8 +24,42 @@ final class DomainsController extends Controller
 
     public function __construct(
         private DomainRepository $domains,
+        private DomainExpiryService $expiry,
         private AuditLogger $audit,
     ) {
+    }
+
+    /**
+     * Look up a single domain's expiry (RDAP/WHOIS) and store the result.
+     */
+    public function checkExpiry(Request $request, array $params): Response
+    {
+        $domain = $this->requireDomain($params);
+        $result = $this->expiry->check($domain);
+
+        $this->audit->record('domain.expiry_checked', 'Checked expiry for ' . $domain['domain'], 'domain', (int) $domain['id']);
+
+        if ($result['updated']) {
+            $this->session()->flash('success', "{$domain['domain']}: expires {$result['expires_at']} ({$result['status']}).");
+        } else {
+            $this->session()->flash('warning', "{$domain['domain']}: {$result['message']}");
+        }
+
+        return $this->redirect('/domains/' . (int) $domain['id']);
+    }
+
+    /**
+     * Look up every stored domain's expiry.
+     */
+    public function checkAll(Request $request, array $params): Response
+    {
+        $summary = $this->expiry->checkAll();
+        $this->audit->record('domain.expiry_checked_all', "Checked {$summary['checked']} domain(s) for expiry.");
+        $this->session()->flash(
+            'success',
+            "Checked {$summary['checked']} domain(s): {$summary['updated']} updated, {$summary['expiring']} expiring, {$summary['expired']} expired."
+        );
+        return $this->redirect('/domains');
     }
 
     public function index(Request $request, array $params): Response
