@@ -138,6 +138,39 @@ final class DomainRepository
     }
 
     /**
+     * Dashboard summary of upcoming/expired domains.
+     *
+     * @return array{expired:int, within30:int, within60:int, soon:array<int,array<string,mixed>>}
+     */
+    public function expirySummary(int $listLimit = 6): array
+    {
+        $counts = $this->db->first(
+            "SELECT
+                SUM(CASE WHEN DATEDIFF(expires_at, UTC_DATE()) < 0 THEN 1 ELSE 0 END)             AS expired,
+                SUM(CASE WHEN DATEDIFF(expires_at, UTC_DATE()) BETWEEN 0 AND 30 THEN 1 ELSE 0 END) AS within30,
+                SUM(CASE WHEN DATEDIFF(expires_at, UTC_DATE()) BETWEEN 0 AND 60 THEN 1 ELSE 0 END) AS within60
+             FROM domains WHERE deleted_at IS NULL AND expires_at IS NOT NULL"
+        ) ?? [];
+
+        $listLimit = max(1, min($listLimit, 20));
+        $soon = $this->db->all(
+            "SELECT id, domain, expires_at, status, DATEDIFF(expires_at, UTC_DATE()) AS days_to_expiry
+               FROM domains
+              WHERE deleted_at IS NULL AND expires_at IS NOT NULL
+                AND DATEDIFF(expires_at, UTC_DATE()) <= 60
+           ORDER BY expires_at ASC
+              LIMIT {$listLimit}"
+        );
+
+        return [
+            'expired'  => (int) ($counts['expired'] ?? 0),
+            'within30' => (int) ($counts['within30'] ?? 0),
+            'within60' => (int) ($counts['within60'] ?? 0),
+            'soon'     => $soon,
+        ];
+    }
+
+    /**
      * All non-deleted domains, minimal fields, for the expiry checker.
      *
      * @return array<int, array<string, mixed>>

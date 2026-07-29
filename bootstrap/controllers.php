@@ -56,7 +56,9 @@ $container->bind(AuthController::class, static fn (Container $c): AuthController
 
 $container->bind(DashboardController::class, static fn (Container $c): DashboardController => new DashboardController(
     $c->get(AccountRepository::class),
+    $c->get(DomainRepository::class),
     $c->get(WhmApiClient::class),
+    $c->get(Auth::class),
 ));
 
 $container->bind(SettingsController::class, static fn (Container $c): SettingsController => new SettingsController(

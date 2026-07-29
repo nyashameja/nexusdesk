@@ -8,6 +8,8 @@ use ParagonHostOps\Core\Controller;
 use ParagonHostOps\Core\Request;
 use ParagonHostOps\Core\Response;
 use ParagonHostOps\Repositories\AccountRepository;
+use ParagonHostOps\Repositories\DomainRepository;
+use ParagonHostOps\Services\Auth;
 use ParagonHostOps\Services\Whm\WhmApiClient;
 
 /**
@@ -18,7 +20,9 @@ final class DashboardController extends Controller
 {
     public function __construct(
         private AccountRepository $accounts,
+        private DomainRepository $domains,
         private WhmApiClient $whm,
+        private Auth $auth,
     ) {
     }
 
@@ -47,6 +51,7 @@ final class DashboardController extends Controller
             'whmConfigured' => $this->whm->isConfigured(),
             'attention'     => $this->accounts->attentionList(10),
             'charts'        => $charts,
+            'domainExpiry'  => $this->auth->can('domains.view') ? $this->domains->expirySummary(6) : null,
             'scripts'       => ['assets/js/chart.umd.js', 'assets/js/dashboard.js'],
         ]);
     }

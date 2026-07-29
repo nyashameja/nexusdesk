@@ -49,5 +49,14 @@ if ($result->errors !== []) {
     }
 }
 
+// A full nightly run also refreshes domain expiry dates (RDAP/WHOIS).
+if ($account === null && !in_array('--no-domains', $argv, true)) {
+    $domains = $container->get(\ParagonHostOps\Services\Domains\DomainExpiryService::class)->checkAll();
+    echo sprintf(
+        "Domains: %d checked, %d updated, %d expiring, %d expired\n",
+        $domains['checked'], $domains['updated'], $domains['expiring'], $domains['expired']
+    );
+}
+
 // Non-zero exit for failed runs so cron alerting can detect problems.
 exit($result->status() === 'failed' ? 1 : 0);

@@ -164,4 +164,41 @@ $pct = static function ($used, $limit): int {
     </div>
 </div>
 
+<?php if (!empty($domainExpiry) && (($domainExpiry['within60'] ?? 0) > 0 || ($domainExpiry['expired'] ?? 0) > 0)): ?>
+    <div class="pg-card mt-3">
+        <div class="pg-card-head flex justify-between items-center">
+            <span>Domains expiring soon</span>
+            <a class="pg-btn ghost" href="<?= e(url('/domains?status=expiring')) ?>" style="padding:4px 10px">All domains</a>
+        </div>
+        <div class="pg-card-body" style="padding-bottom:6px">
+            <div class="flex gap-2 flex-wrap mb-2">
+                <span class="pg-badge danger">Expired: <?= (int) $domainExpiry['expired'] ?></span>
+                <span class="pg-badge warn">≤ 30 days: <?= (int) $domainExpiry['within30'] ?></span>
+                <span class="pg-badge info">≤ 60 days: <?= (int) $domainExpiry['within60'] ?></span>
+            </div>
+        </div>
+        <div class="pg-table-wrap">
+            <table class="pg-table">
+                <thead><tr><th>Domain</th><th>Expires</th><th>Remaining</th></tr></thead>
+                <tbody>
+                <?php foreach ($domainExpiry['soon'] as $d):
+                    $days = $d['days_to_expiry'];
+                    if ($days === null) { $badge = '<span class="pg-muted">—</span>'; }
+                    elseif ((int) $days < 0) { $badge = '<span class="pg-badge danger">Expired ' . abs((int) $days) . 'd ago</span>'; }
+                    elseif ((int) $days <= 7) { $badge = '<span class="pg-badge danger">' . (int) $days . 'd</span>'; }
+                    elseif ((int) $days <= 30) { $badge = '<span class="pg-badge warn">' . (int) $days . 'd</span>'; }
+                    else { $badge = '<span class="pg-badge info">' . (int) $days . 'd</span>'; }
+                ?>
+                    <tr>
+                        <td><a href="<?= e(url('/domains/' . (int) $d['id'])) ?>"><strong><?= e($d['domain']) ?></strong></a></td>
+                        <td class="pg-soft"><?= !empty($d['expires_at']) ? e(date('d M Y', strtotime((string) $d['expires_at']))) : '—' ?></td>
+                        <td><?= $badge ?></td>
+                    </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+<?php endif; ?>
+
 <script type="application/json" id="pg-dashboard-data"><?= json_encode($charts, JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>

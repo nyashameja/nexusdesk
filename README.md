@@ -125,7 +125,8 @@ secret-protected web endpoint (`public/cron.php`, guarded by `CRON_SECRET`).
 No permanent worker is required. Example cPanel cron entries:
 
 ```
-# Nightly WHM synchronisation (CLI)
+# Nightly WHM synchronisation (CLI) — also refreshes domain expiry dates.
+# Add --no-domains to skip the domain lookups.
 0 2 * * * /usr/local/bin/php /home/USER/hostops/bin/sync.php >/dev/null 2>&1
 
 # Uptime checks every 10 minutes (CLI)
