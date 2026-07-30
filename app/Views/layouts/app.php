@@ -10,7 +10,7 @@ $title = $title ?? 'Overview';
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="<?= e(csrf_token()) ?>">
     <title><?= e($title) ?> · <?= e($appName ?? 'Paragon HostOps') ?></title>
-    <link rel="stylesheet" href="<?= e(url('assets/css/app.css')) ?>">
+    <link rel="stylesheet" href="<?= e(asset('assets/css/app.css')) ?>">
 </head>
 <body>
 <div class="pg-shell">
@@ -26,9 +26,9 @@ $title = $title ?? 'Overview';
         </main>
     </div>
 </div>
-<script src="<?= e(url('assets/js/app.js')) ?>"></script>
+<script src="<?= e(asset('assets/js/app.js')) ?>"></script>
 <?php foreach (($scripts ?? []) as $script): ?>
-<script src="<?= e(url($script)) ?>"></script>
+<script src="<?= e(asset($script)) ?>"></script>
 <?php endforeach; ?>
 </body>
 </html>

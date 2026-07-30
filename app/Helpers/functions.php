@@ -106,6 +106,19 @@ if (!function_exists('url')) {
     }
 }
 
+if (!function_exists('asset')) {
+    /**
+     * URL for a public asset with a content-hash cache-buster, so browsers
+     * fetch a fresh copy whenever the file changes (no more stale CSS/JS).
+     */
+    function asset(string $path): string
+    {
+        $file    = base_path('public/' . ltrim($path, '/'));
+        $version = is_file($file) ? (string) filemtime($file) : null;
+        return url($path) . ($version !== null ? '?v=' . $version : '');
+    }
+}
+
 if (!function_exists('old')) {
     /**
      * Retrieve a previously submitted form value flashed to the session.

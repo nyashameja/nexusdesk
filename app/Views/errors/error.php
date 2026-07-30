@@ -8,7 +8,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= (int) $status ?> · <?= e($appName ?? 'Paragon HostOps') ?></title>
-    <link rel="stylesheet" href="<?= e(url('assets/css/app.css')) ?>">
+    <link rel="stylesheet" href="<?= e(asset('assets/css/app.css')) ?>">
 </head>
 <body>
 <div class="pg-auth">
