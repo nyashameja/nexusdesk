@@ -9,6 +9,7 @@ use ParagonHostOps\Core\Request;
 use ParagonHostOps\Core\Response;
 use ParagonHostOps\Services\Alerts\AlertChannelInterface;
 use ParagonHostOps\Services\Alerts\AlertService;
+use ParagonHostOps\Services\Alerts\TelegramAlertChannel;
 use ParagonHostOps\Services\AuditLogger;
 
 /**
@@ -65,6 +66,7 @@ final class AlertsController extends Controller
     {
         $sent = [];
         $failed = [];
+        $failureDetails = [];
 
         foreach ($this->channels as $channel) {
             if (!$channel->isConfigured()) {
@@ -74,7 +76,14 @@ final class AlertsController extends Controller
                 'Paragon HostOps: test alert',
                 "This is a test alert from Paragon HostOps.\n\nIf you received this, alerts are working."
             );
-            $ok ? $sent[] = $channel->name() : $failed[] = $channel->name();
+            if ($ok) {
+                $sent[] = $channel->name();
+                continue;
+            }
+            $failed[] = $channel->name();
+            if ($channel instanceof TelegramAlertChannel && $channel->lastError() !== '') {
+                $failureDetails[] = $channel->name() . ' — ' . $channel->lastError();
+            }
         }
 
         $this->audit->record('alerts.test', 'Sent test alert. OK: ' . (implode(',', $sent) ?: 'none') . '; failed: ' . (implode(',', $failed) ?: 'none'));
@@ -84,7 +93,11 @@ final class AlertsController extends Controller
         } elseif ($failed === []) {
             $this->session()->flash('success', 'Test sent via: ' . implode(', ', $sent) . '.');
         } else {
-            $this->session()->flash('warning', 'Sent via: ' . (implode(', ', $sent) ?: 'none') . '. Failed: ' . implode(', ', $failed) . '.');
+            $message = 'Sent via: ' . (implode(', ', $sent) ?: 'none') . '. Failed: ' . implode(', ', $failed) . '.';
+            if ($failureDetails !== []) {
+                $message .= ' (' . implode('; ', $failureDetails) . ')';
+            }
+            $this->session()->flash('warning', $message);
         }
 
         return $this->redirect('/settings/alerts');

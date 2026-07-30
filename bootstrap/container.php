@@ -142,8 +142,8 @@ $container->bind(EmailAlertChannel::class, static function (Container $c): Email
         (string) (parse_url((string) Config::get('app.url', ''), PHP_URL_HOST) ?: 'localhost'),
     );
 });
-$container->bind(TelegramAlertChannel::class, static function (): TelegramAlertChannel {
-    return new TelegramAlertChannel((array) Config::get('alerts.telegram', []));
+$container->bind(TelegramAlertChannel::class, static function (Container $c): TelegramAlertChannel {
+    return new TelegramAlertChannel((array) Config::get('alerts.telegram', []), null, $c->get(Logger::class));
 });
 
 // Shared channel list, reused by the alert service and the settings page.

@@ -23,7 +23,7 @@ final class TelegramAlertChannelTest extends TestCase
             ['enabled' => true, 'bot_token' => 'BOTTOKEN', 'chat_id' => '12345'],
             function (string $url, array $params) use (&$captured): array {
                 $captured = ['url' => $url, 'params' => $params];
-                return ['ok' => true, 'status' => 200];
+                return ['ok' => true, 'status' => 200, 'error' => ''];
             }
         );
 
@@ -40,10 +40,11 @@ final class TelegramAlertChannelTest extends TestCase
     {
         $channel = new TelegramAlertChannel(
             ['enabled' => true, 'bot_token' => 't', 'chat_id' => 'c'],
-            fn (): array => ['ok' => false, 'status' => 400]
+            fn (): array => ['ok' => false, 'status' => 400, 'error' => 'chat not found']
         );
 
         $this->assertFalse($channel->notify('S', 'B'));
+        $this->assertSame('HTTP 400: chat not found', $channel->lastError());
     }
 
     public function test_unconfigured_channel_does_not_send(): void
@@ -51,7 +52,7 @@ final class TelegramAlertChannelTest extends TestCase
         $called = false;
         $channel = new TelegramAlertChannel(
             ['enabled' => false, 'bot_token' => '', 'chat_id' => ''],
-            function () use (&$called): array { $called = true; return ['ok' => true, 'status' => 200]; }
+            function () use (&$called): array { $called = true; return ['ok' => true, 'status' => 200, 'error' => '']; }
         );
 
         $this->assertFalse($channel->notify('S', 'B'));

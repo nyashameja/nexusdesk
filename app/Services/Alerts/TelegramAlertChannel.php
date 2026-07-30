@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace ParagonHostOps\Services\Alerts;
 
+use ParagonHostOps\Core\Logger;
+
 /**
  * Telegram delivery channel via the Bot API (HTTPS, no approval, free).
  *
@@ -11,16 +13,19 @@ namespace ParagonHostOps\Services\Alerts;
  */
 final class TelegramAlertChannel implements AlertChannelInterface
 {
-    /** @var callable(string,array):array{ok:bool,status:int} */
+    /** @var callable(string,array):array{ok:bool,status:int,error:string} */
     private $transport;
+
+    private string $lastError = '';
 
     /**
      * @param array{enabled:bool, bot_token:string, chat_id:string} $config
-     * @param callable(string,array):array{ok:bool,status:int}|null   $transport
+     * @param callable(string,array):array{ok:bool,status:int,error:string}|null $transport
      */
     public function __construct(
         private array $config,
         ?callable $transport = null,
+        private ?Logger $logger = null,
     ) {
         $this->transport = $transport ?? self::curlTransport();
     }
@@ -53,11 +58,31 @@ final class TelegramAlertChannel implements AlertChannelInterface
             'disable_web_page_preview' => true,
         ]);
 
-        return $result['ok'] === true && $result['status'] >= 200 && $result['status'] < 300;
+        $ok = $result['ok'] === true && $result['status'] >= 200 && $result['status'] < 300;
+
+        if (!$ok) {
+            $this->lastError = trim(sprintf('HTTP %d%s', $result['status'], $result['error'] !== '' ? ': ' . $result['error'] : ''));
+            $this->logger?->warning('Telegram alert delivery failed', [
+                'status' => $result['status'],
+                'error'  => $result['error'],
+            ]);
+        } else {
+            $this->lastError = '';
+        }
+
+        return $ok;
     }
 
     /**
-     * @return callable(string,array):array{ok:bool,status:int}
+     * Human-readable reason the most recent notify() call failed, if any.
+     */
+    public function lastError(): string
+    {
+        return $this->lastError;
+    }
+
+    /**
+     * @return callable(string,array):array{ok:bool,status:int,error:string}
      */
     private static function curlTransport(): callable
     {
@@ -73,14 +98,19 @@ final class TelegramAlertChannel implements AlertChannelInterface
                 CURLOPT_SSL_VERIFYPEER => true,
                 CURLOPT_SSL_VERIFYHOST => 2,
             ]);
-            $body   = curl_exec($ch);
-            $status = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $body      = curl_exec($ch);
+            $status    = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curlError = curl_error($ch);
             curl_close($ch);
 
             $decoded = is_string($body) ? json_decode($body, true) : null;
             $ok = is_array($decoded) && ($decoded['ok'] ?? false) === true;
 
-            return ['ok' => $ok, 'status' => $status];
+            $error = $curlError !== ''
+                ? $curlError
+                : (is_array($decoded) ? (string) ($decoded['description'] ?? '') : (is_string($body) ? substr($body, 0, 300) : ''));
+
+            return ['ok' => $ok, 'status' => $status, 'error' => $error];
         };
     }
 }
