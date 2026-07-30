@@ -138,15 +138,29 @@ No permanent worker is required. Example cPanel cron entries:
 #   curl -s "https://ops.example.com/cron.php?job=domains&token=YOUR_CRON_SECRET"
 ```
 
-**Alerts (email):** enable with `ALERTS_ENABLED=true` and set `ALERT_EMAIL_TO`
-(comma-separated) in `.env`. Alerts fire for SSL and domain expiry (30/15/5
+**Alerts (email + Telegram):** enable delivery with `ALERTS_ENABLED=true`, then
+configure one or both channels. Alerts fire for SSL and domain expiry (30/15/5
 days, and expired) and disk/bandwidth usage (80%, then 95%). Each threshold
-sends **once per crossing** (a single digest email per run) and re-arms when the
+sends **once per crossing** (a single digest per run) and re-arms when the
 condition clears. They run automatically with the nightly `bin/sync.php`, or via
-the `alerts` cron job; **Settings → Alerts** has "Run now" and "Send test email".
-Uses PHP `mail()` — no third-party service. A `_domains`-style schema change is
-included, so after upgrading run `php database/migrate.php` once to add the
-`alerts_log` table.
+the `alerts` cron job; **Settings → Alerts** shows every channel's status with
+"Run now" and "Send test alert". After upgrading, run `php database/migrate.php`
+once to add the `alerts_log` table.
+
+- **Email** (PHP `mail()`, no third-party service): set `ALERT_EMAIL_TO`
+  (comma-separated). Optionally set `ALERT_EMAIL_FROM` to a real mailbox on your
+  domain for best deliverability.
+- **Telegram** (free, via the Bot API — recommended for instant push):
+  1. In Telegram, message **@BotFather**, send `/newbot`, follow the prompts, and
+     copy the **bot token** it gives you.
+  2. Start a chat with your new bot and send it any message (e.g. "hi") — a bot
+     can't message you until you do.
+  3. Get your **chat id**: open
+     `https://api.telegram.org/bot<YOUR_TOKEN>/getUpdates` in a browser and copy
+     `result[].message.chat.id` (a number; negative for a group). To alert a
+     group, add the bot to the group and send a message there first.
+  4. In `.env` set `ALERT_TELEGRAM_ENABLED=true`, `ALERT_TELEGRAM_BOT_TOKEN=…`,
+     `ALERT_TELEGRAM_CHAT_ID=…`, then use **Settings → Alerts → Send test alert**.
 
 ```
 # Evaluate alerts every 30 minutes (web endpoint)

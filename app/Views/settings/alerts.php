@@ -1,10 +1,13 @@
 <?php
 /** @var \ParagonHostOps\Core\View $this */
-/** @var bool $enabled, $configured */
+/** @var bool $enabled */
+/** @var array<int,array{name:string,configured:bool,detail:string}> $channels */
 /** @var array<int,string> $recipients */
 /** @var array<string,mixed> $thresholds */
 /** @var \ParagonHostOps\Services\Auth $auth */
 $this->layout('layouts.app');
+$anyConfigured = false;
+foreach ($channels as $ch) { $anyConfigured = $anyConfigured || $ch['configured']; }
 ?>
 <div class="pg-page-head">
     <div>
@@ -18,17 +21,19 @@ $this->layout('layouts.app');
         <div class="pg-card-head">Status</div>
         <div class="pg-table-wrap">
             <table class="pg-table"><tbody>
-                <tr><td class="pg-soft" style="width:45%">Email alerts</td><td>
+                <tr><td class="pg-soft" style="width:32%">Delivery</td><td>
                     <?= $enabled ? '<span class="pg-badge ok">Enabled</span>' : '<span class="pg-badge warn">Disabled</span>' ?>
                     <?php if (!$enabled): ?><span class="pg-muted" style="font-size:12px"> — set <code>ALERTS_ENABLED=true</code> in .env</span><?php endif; ?>
                 </td></tr>
-                <tr><td class="pg-soft">Recipients</td><td>
-                    <?php if ($recipients): ?>
-                        <?= e(implode(', ', $recipients)) ?>
-                    <?php else: ?>
-                        <span class="pg-badge danger">None</span> <span class="pg-muted" style="font-size:12px">set <code>ALERT_EMAIL_TO</code> in .env</span>
-                    <?php endif; ?>
-                </td></tr>
+                <?php foreach ($channels as $ch): ?>
+                    <tr>
+                        <td class="pg-soft"><?= e(ucfirst($ch['name'])) ?></td>
+                        <td>
+                            <?= $ch['configured'] ? '<span class="pg-badge ok">Configured</span>' : '<span class="pg-badge neutral">Not configured</span>' ?>
+                            <span class="pg-muted" style="font-size:12px"> — <?= e($ch['detail']) ?></span>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
                 <tr><td class="pg-soft">Domain / SSL thresholds</td><td class="pg-soft"><?= e(implode(', ', $thresholds['domain_days'] ?? [])) ?> days</td></tr>
                 <tr><td class="pg-soft">Usage thresholds</td><td class="pg-soft"><?= e(implode('%, ', $thresholds['usage_pct'] ?? [])) ?>%</td></tr>
             </tbody></table>
@@ -41,7 +46,7 @@ $this->layout('layouts.app');
             <p class="pg-soft">Run a check now, or send a test email to confirm delivery.</p>
             <div class="flex gap-2 flex-wrap">
                 <form method="post" action="<?= e(url('/settings/alerts/run')) ?>" style="margin:0"><?= csrf_field() ?><button class="pg-btn primary" type="submit">Run alert check now</button></form>
-                <form method="post" action="<?= e(url('/settings/alerts/test')) ?>" style="margin:0"><?= csrf_field() ?><button class="pg-btn" type="submit" <?= $configured ? '' : 'disabled' ?>>Send test email</button></form>
+                <form method="post" action="<?= e(url('/settings/alerts/test')) ?>" style="margin:0"><?= csrf_field() ?><button class="pg-btn" type="submit" <?= $anyConfigured ? '' : 'disabled' ?>>Send test alert</button></form>
             </div>
             <p class="pg-muted mt-2 mb-0" style="font-size:11.5px">
                 Alerts also run automatically with the nightly synchronisation, or via the

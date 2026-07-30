@@ -23,6 +23,12 @@ return [
         'from_name' => env('ALERT_EMAIL_FROM_NAME', 'Paragon HostOps'),
     ],
 
+    'telegram' => [
+        'enabled'   => env_bool('ALERT_TELEGRAM_ENABLED', false),
+        'bot_token' => env('ALERT_TELEGRAM_BOT_TOKEN', ''),
+        'chat_id'   => env('ALERT_TELEGRAM_CHAT_ID', ''),
+    ],
+
     /**
      * Thresholds (days for expiry, percent for usage). The lowest matching
      * bucket fires exactly once per crossing; alerts re-arm when the condition

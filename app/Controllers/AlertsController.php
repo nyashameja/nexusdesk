@@ -7,30 +7,44 @@ namespace ParagonHostOps\Controllers;
 use ParagonHostOps\Core\Controller;
 use ParagonHostOps\Core\Request;
 use ParagonHostOps\Core\Response;
+use ParagonHostOps\Services\Alerts\AlertChannelInterface;
 use ParagonHostOps\Services\Alerts\AlertService;
-use ParagonHostOps\Services\Alerts\EmailAlertChannel;
 use ParagonHostOps\Services\AuditLogger;
 
 /**
- * Alerts settings: shows configuration, runs a check on demand, and sends a
- * test email. Requires settings.view.
+ * Alerts settings: shows configuration for every channel, runs a check on
+ * demand, and sends a test message. Requires settings.view.
  */
 final class AlertsController extends Controller
 {
+    /**
+     * @param array<int, AlertChannelInterface> $channels
+     */
     public function __construct(
         private AlertService $alerts,
-        private EmailAlertChannel $email,
+        private array $channels,
         private AuditLogger $audit,
     ) {
     }
 
     public function index(Request $request, array $params): Response
     {
+        $telegram = (array) config('alerts.telegram', []);
+
+        $channelRows = [];
+        foreach ($this->channels as $channel) {
+            $channelRows[] = [
+                'name'       => $channel->name(),
+                'configured' => $channel->isConfigured(),
+                'detail'     => $this->detailFor($channel->name(), $telegram),
+            ];
+        }
+
         return $this->view('settings.alerts', [
             'title'      => 'Alerts',
             'enabled'    => (bool) config('alerts.enabled', false),
+            'channels'   => $channelRows,
             'recipients' => (array) config('alerts.email.to', []),
-            'configured' => $this->email->isConfigured(),
             'thresholds' => (array) config('alerts.thresholds', []),
         ]);
     }
@@ -42,27 +56,55 @@ final class AlertsController extends Controller
         $this->session()->flash(
             'success',
             "Alert check complete: {$summary['new']} new alert(s), {$summary['active']} active"
-            . ($summary['emailed'] ? ', email sent.' : ($summary['new'] > 0 ? ' (email disabled or no recipients).' : '.'))
+            . ($summary['emailed'] ? ', notifications sent.' : ($summary['new'] > 0 ? ' (delivery disabled or no channel configured).' : '.'))
         );
         return $this->redirect('/settings/alerts');
     }
 
     public function test(Request $request, array $params): Response
     {
-        if (!$this->email->isConfigured()) {
-            $this->session()->flash('error', 'No alert recipients configured. Set ALERT_EMAIL_TO in .env.');
-            return $this->redirect('/settings/alerts');
+        $sent = [];
+        $failed = [];
+
+        foreach ($this->channels as $channel) {
+            if (!$channel->isConfigured()) {
+                continue;
+            }
+            $ok = $channel->notify(
+                'Paragon HostOps: test alert',
+                "This is a test alert from Paragon HostOps.\n\nIf you received this, alerts are working."
+            );
+            $ok ? $sent[] = $channel->name() : $failed[] = $channel->name();
         }
 
-        $ok = $this->email->notify(
-            'Paragon HostOps: test alert',
-            "This is a test alert from Paragon HostOps.\n\nIf you received this, email alerts are working."
-        );
-        $this->audit->record('alerts.test', 'Sent a test alert email: ' . ($ok ? 'success' : 'failure'));
-        $this->session()->flash(
-            $ok ? 'success' : 'error',
-            $ok ? 'Test email sent to the configured recipients.' : 'The mail server rejected the test email (check server mail settings).'
-        );
+        $this->audit->record('alerts.test', 'Sent test alert. OK: ' . (implode(',', $sent) ?: 'none') . '; failed: ' . (implode(',', $failed) ?: 'none'));
+
+        if ($sent === [] && $failed === []) {
+            $this->session()->flash('error', 'No channel is configured. Set up email and/or Telegram in .env.');
+        } elseif ($failed === []) {
+            $this->session()->flash('success', 'Test sent via: ' . implode(', ', $sent) . '.');
+        } else {
+            $this->session()->flash('warning', 'Sent via: ' . (implode(', ', $sent) ?: 'none') . '. Failed: ' . implode(', ', $failed) . '.');
+        }
+
         return $this->redirect('/settings/alerts');
+    }
+
+    /**
+     * @param array<string, mixed> $telegram
+     */
+    private function detailFor(string $channel, array $telegram): string
+    {
+        if ($channel === 'email') {
+            $to = (array) config('alerts.email.to', []);
+            return $to === [] ? 'No recipients (set ALERT_EMAIL_TO)' : implode(', ', $to);
+        }
+        if ($channel === 'telegram') {
+            if (empty($telegram['bot_token']) || empty($telegram['chat_id'])) {
+                return 'Bot token / chat ID not set';
+            }
+            return empty($telegram['enabled']) ? 'Configured but disabled (ALERT_TELEGRAM_ENABLED=false)' : 'Chat ID ' . $telegram['chat_id'];
+        }
+        return '';
     }
 }

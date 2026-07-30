@@ -38,6 +38,7 @@ use ParagonHostOps\Services\Auth;
 use ParagonHostOps\Services\Alerts\AlertService;
 use ParagonHostOps\Services\Alerts\EmailAlertChannel;
 use ParagonHostOps\Services\Alerts\Mailer;
+use ParagonHostOps\Services\Alerts\TelegramAlertChannel;
 use ParagonHostOps\Services\Domains\DomainExpiryChecker;
 use ParagonHostOps\Services\Domains\DomainExpiryService;
 use ParagonHostOps\Services\HealthScoreService;
@@ -141,11 +142,23 @@ $container->bind(EmailAlertChannel::class, static function (Container $c): Email
         (string) (parse_url((string) Config::get('app.url', ''), PHP_URL_HOST) ?: 'localhost'),
     );
 });
+$container->bind(TelegramAlertChannel::class, static function (): TelegramAlertChannel {
+    return new TelegramAlertChannel((array) Config::get('alerts.telegram', []));
+});
+
+// Shared channel list, reused by the alert service and the settings page.
+$container->bind('alert.channels', static function (Container $c): array {
+    return [
+        $c->get(EmailAlertChannel::class),
+        $c->get(TelegramAlertChannel::class),
+    ];
+});
+
 $container->bind(AlertService::class, static function (Container $c): AlertService {
     return new AlertService(
         $c->get(AlertRepository::class),
         $c->get(NotificationRepository::class),
-        [$c->get(EmailAlertChannel::class)],
+        $c->get('alert.channels'),
         (bool) Config::get('alerts.enabled', false),
     );
 });
