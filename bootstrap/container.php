@@ -20,6 +20,7 @@ use ParagonHostOps\Repositories\ClientRepository;
 use ParagonHostOps\Repositories\DomainRepository;
 use ParagonHostOps\Repositories\FinancialRepository;
 use ParagonHostOps\Repositories\HealthRepository;
+use ParagonHostOps\Repositories\AlertRepository;
 use ParagonHostOps\Repositories\LoginAttemptRepository;
 use ParagonHostOps\Repositories\NotificationRepository;
 use ParagonHostOps\Repositories\ReportRepository;
@@ -34,6 +35,9 @@ use ParagonHostOps\Repositories\SyncRepository;
 use ParagonHostOps\Repositories\UserRepository;
 use ParagonHostOps\Services\AuditLogger;
 use ParagonHostOps\Services\Auth;
+use ParagonHostOps\Services\Alerts\AlertService;
+use ParagonHostOps\Services\Alerts\EmailAlertChannel;
+use ParagonHostOps\Services\Alerts\Mailer;
 use ParagonHostOps\Services\Domains\DomainExpiryChecker;
 use ParagonHostOps\Services\Domains\DomainExpiryService;
 use ParagonHostOps\Services\HealthScoreService;
@@ -127,6 +131,24 @@ $container->bind(AuditLogger::class, static function (Container $c): AuditLogger
 });
 
 $container->bind(HealthScoreService::class, static fn (): HealthScoreService => new HealthScoreService());
+
+$container->bind(AlertRepository::class, static fn (Container $c): AlertRepository => new AlertRepository($c->get(Database::class)));
+$container->bind(Mailer::class, static fn (): Mailer => new Mailer());
+$container->bind(EmailAlertChannel::class, static function (Container $c): EmailAlertChannel {
+    return new EmailAlertChannel(
+        $c->get(Mailer::class),
+        (array) Config::get('alerts.email', []),
+        (string) (parse_url((string) Config::get('app.url', ''), PHP_URL_HOST) ?: 'localhost'),
+    );
+});
+$container->bind(AlertService::class, static function (Container $c): AlertService {
+    return new AlertService(
+        $c->get(AlertRepository::class),
+        $c->get(NotificationRepository::class),
+        [$c->get(EmailAlertChannel::class)],
+        (bool) Config::get('alerts.enabled', false),
+    );
+});
 
 $container->bind(DomainExpiryChecker::class, static fn (): DomainExpiryChecker => new DomainExpiryChecker());
 $container->bind(DomainExpiryService::class, static fn (Container $c): DomainExpiryService => new DomainExpiryService(

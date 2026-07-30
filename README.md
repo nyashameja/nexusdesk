@@ -138,6 +138,21 @@ No permanent worker is required. Example cPanel cron entries:
 #   curl -s "https://ops.example.com/cron.php?job=domains&token=YOUR_CRON_SECRET"
 ```
 
+**Alerts (email):** enable with `ALERTS_ENABLED=true` and set `ALERT_EMAIL_TO`
+(comma-separated) in `.env`. Alerts fire for SSL and domain expiry (30/15/5
+days, and expired) and disk/bandwidth usage (80%, then 95%). Each threshold
+sends **once per crossing** (a single digest email per run) and re-arms when the
+condition clears. They run automatically with the nightly `bin/sync.php`, or via
+the `alerts` cron job; **Settings → Alerts** has "Run now" and "Send test email".
+Uses PHP `mail()` — no third-party service. A `_domains`-style schema change is
+included, so after upgrading run `php database/migrate.php` once to add the
+`alerts_log` table.
+
+```
+# Evaluate alerts every 30 minutes (web endpoint)
+curl -s "https://ops.example.com/cron.php?job=alerts&token=YOUR_CRON_SECRET"
+```
+
 **Domain expiry:** the Domains module can look up expiry dates automatically via
 RDAP (with a WHOIS fallback) — no API key required. Use **Check expiry** on a
 domain, **Check all expiry** on the list, or schedule the `domains` cron job

@@ -122,4 +122,7 @@ return static function (Router $router): void {
 
     // --- Settings ---
     $router->get('/settings/whm', [SettingsController::class, 'whm'], [AuthMiddleware::class, 'perm:settings.view']);
+    $router->get('/settings/alerts', [\ParagonHostOps\Controllers\AlertsController::class, 'index'], [AuthMiddleware::class, 'perm:settings.view']);
+    $router->post('/settings/alerts/run', [\ParagonHostOps\Controllers\AlertsController::class, 'run'], [VerifyCsrfMiddleware::class, AuthMiddleware::class, 'perm:settings.view']);
+    $router->post('/settings/alerts/test', [\ParagonHostOps\Controllers\AlertsController::class, 'test'], [VerifyCsrfMiddleware::class, AuthMiddleware::class, 'perm:settings.view']);
 };

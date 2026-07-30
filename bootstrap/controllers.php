@@ -145,3 +145,9 @@ $container->bind(ReportsController::class, static fn (Container $c): ReportsCont
 $container->bind(AuditController::class, static fn (Container $c): AuditController => new AuditController(
     $c->get(AuditLogRepository::class),
 ));
+
+$container->bind(\ParagonHostOps\Controllers\AlertsController::class, static fn (Container $c): \ParagonHostOps\Controllers\AlertsController => new \ParagonHostOps\Controllers\AlertsController(
+    $c->get(\ParagonHostOps\Services\Alerts\AlertService::class),
+    $c->get(\ParagonHostOps\Services\Alerts\EmailAlertChannel::class),
+    $c->get(AuditLogger::class),
+));

@@ -21,6 +21,7 @@ $nav = [
     ['/reports',   'Reports',          '▬', 'reports.view'],
     ['/sync',      'Synchronisation',  '⟳', 'sync.view'],
     ['/audit-logs','Audit Logs',       '❐', 'audit.view'],
+    ['/settings/alerts', 'Alerts',     '🔔', 'settings.view'],
     ['/settings/whm', 'Settings',      '⚙', 'settings.view'],
 ];
 ?>

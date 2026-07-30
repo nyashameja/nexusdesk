@@ -545,4 +545,16 @@ CREATE TABLE IF NOT EXISTS notifications (
     CONSTRAINT fk_notif_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- ---------- Alerting (threshold de-duplication) ----------
+CREATE TABLE IF NOT EXISTS alerts_log (
+    id         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    alert_key  VARCHAR(190) NOT NULL,
+    category   VARCHAR(40)  NOT NULL,
+    message    VARCHAR(500) NULL,
+    sent_at    TIMESTAMP    NULL DEFAULT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_alert_key (alert_key),
+    KEY idx_alert_category (category)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 SET FOREIGN_KEY_CHECKS = 1;

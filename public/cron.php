@@ -14,6 +14,7 @@ declare(strict_types=1);
 
 use ParagonHostOps\Core\Config;
 use ParagonHostOps\Core\Container;
+use ParagonHostOps\Services\Alerts\AlertService;
 use ParagonHostOps\Services\Domains\DomainExpiryService;
 use ParagonHostOps\Services\Uptime\UptimeService;
 use ParagonHostOps\Services\Whm\SyncService;
@@ -59,6 +60,13 @@ switch ($job) {
         $domains = $container->get(DomainExpiryService::class);
         $summary = $domains->checkAll();
         echo json_encode(['job' => 'domains'] + $summary);
+        break;
+
+    case 'alerts':
+        /** @var AlertService $alerts */
+        $alerts  = $container->get(AlertService::class);
+        $summary = $alerts->run();
+        echo json_encode(['job' => 'alerts'] + $summary);
         break;
 
     default:

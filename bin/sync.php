@@ -58,5 +58,14 @@ if ($account === null && !in_array('--no-domains', $argv, true)) {
     );
 }
 
+// ...and evaluates alerts (SSL/domain expiry, disk/bandwidth) on the fresh data.
+if ($account === null && !in_array('--no-alerts', $argv, true)) {
+    $alerts = $container->get(\ParagonHostOps\Services\Alerts\AlertService::class)->run();
+    echo sprintf(
+        "Alerts : %d new, %d active%s\n",
+        $alerts['new'], $alerts['active'], $alerts['emailed'] ? ', email sent' : ''
+    );
+}
+
 // Non-zero exit for failed runs so cron alerting can detect problems.
 exit($result->status() === 'failed' ? 1 : 0);
