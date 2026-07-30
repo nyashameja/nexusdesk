@@ -168,12 +168,21 @@ curl -s "https://ops.example.com/cron.php?job=alerts&token=YOUR_CRON_SECRET"
 ```
 
 **Domain expiry:** the Domains module can look up expiry dates automatically via
-RDAP (with a WHOIS fallback) — no API key required. Use **Check expiry** on a
-domain, **Check all expiry** on the list, or schedule the `domains` cron job
-above (e.g. daily). Expiry updates the stored date + status and raises
+RDAP (with a WHOIS fallback) — no API key required. RDAP queries the domain's
+actual registry directly, so this works for domains registered anywhere, not
+just ones bought through the same company as the hosting. Use **Check expiry**
+on a domain, **Check all expiry** on the list, or schedule the `domains` cron
+job above (e.g. daily). Expiry updates the stored date + status and raises
 notifications for domains expiring within 30 days or already expired. Some
 ccTLDs (e.g. `.co.za`) do not publish machine-readable expiry; those remain
 manual and are clearly reported as such.
+
+The domain registry is local and starts empty — it does not automatically
+track every domain hosted on the server. Click **Import from hosting
+accounts** on the Domains page to add a registry row (linked to its hosting
+account and client) for every WHM account's primary domain that isn't tracked
+yet, then immediately check expiry for all of them. Safe to click repeatedly —
+it only adds what's missing.
 
 Run synchronisation on demand from **Synchronisation → Synchronise now**, or a
 single account from its detail page. Client health scores can be recomputed

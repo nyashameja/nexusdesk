@@ -27,6 +27,7 @@ $clientName = static fn (array $d): string => trim((string) ($d['company_name'] 
     </div>
     <?php if ($auth->can('domains.manage')): ?>
         <div class="flex gap-2 flex-wrap">
+            <form method="post" action="<?= e(url('/domains/import-from-accounts')) ?>" style="margin:0"><?= csrf_field() ?><button class="pg-btn" type="submit" title="Add any hosting account domain that isn't tracked yet, then check its expiry">⇩ Import from hosting accounts</button></form>
             <form method="post" action="<?= e(url('/domains/check-all')) ?>" style="margin:0"><?= csrf_field() ?><button class="pg-btn" type="submit" title="Look up expiry for all domains via RDAP/WHOIS">↻ Check all expiry</button></form>
             <a class="pg-btn primary" href="<?= e(url('/domains/create')) ?>">+ Add domain</a>
         </div>

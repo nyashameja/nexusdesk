@@ -62,6 +62,7 @@ return static function (Router $router): void {
     $router->get('/domains/create', [DomainsController::class, 'create'], [AuthMiddleware::class, 'perm:domains.manage']);
     $router->post('/domains', [DomainsController::class, 'store'], [VerifyCsrfMiddleware::class, AuthMiddleware::class, 'perm:domains.manage']);
     $router->post('/domains/check-all', [DomainsController::class, 'checkAll'], [VerifyCsrfMiddleware::class, AuthMiddleware::class, 'perm:domains.manage']);
+    $router->post('/domains/import-from-accounts', [DomainsController::class, 'importFromAccounts'], [VerifyCsrfMiddleware::class, AuthMiddleware::class, 'perm:domains.manage']);
     $router->post('/domains/{id}/check-expiry', [DomainsController::class, 'checkExpiry'], [VerifyCsrfMiddleware::class, AuthMiddleware::class, 'perm:domains.manage']);
     $router->get('/domains/{id}/edit', [DomainsController::class, 'edit'], [AuthMiddleware::class, 'perm:domains.manage']);
     $router->add('PUT', '/domains/{id}', [DomainsController::class, 'update'], [VerifyCsrfMiddleware::class, AuthMiddleware::class, 'perm:domains.manage']);

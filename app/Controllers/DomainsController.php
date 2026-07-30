@@ -49,6 +49,30 @@ final class DomainsController extends Controller
     }
 
     /**
+     * Create registry rows for hosting accounts' domains that aren't tracked
+     * yet, then immediately check expiry for everything so the results show
+     * up in one step.
+     */
+    public function importFromAccounts(Request $request, array $params): Response
+    {
+        $imported = $this->domains->importFromAccounts();
+        $this->audit->record('domain.imported_from_accounts', "Imported {$imported} domain(s) from hosting accounts.");
+
+        if ($imported === 0) {
+            $this->session()->flash('success', 'No new domains to import — every hosting account domain is already tracked.');
+            return $this->redirect('/domains');
+        }
+
+        $summary = $this->expiry->checkAll();
+        $this->session()->flash(
+            'success',
+            "Imported {$imported} domain(s) from hosting accounts. Checked {$summary['checked']}: "
+            . "{$summary['updated']} updated, {$summary['expiring']} expiring, {$summary['expired']} expired."
+        );
+        return $this->redirect('/domains');
+    }
+
+    /**
      * Look up every stored domain's expiry.
      */
     public function checkAll(Request $request, array $params): Response

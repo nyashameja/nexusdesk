@@ -171,6 +171,30 @@ final class DomainRepository
     }
 
     /**
+     * Create a registry row for every hosting account's primary domain that
+     * doesn't already have one, linking it to that account (and its client,
+     * if known). Lets the expiry checker cover domains actually hosted here
+     * without the user typing each one in by hand. Safe to run repeatedly.
+     *
+     * @return int number of domains imported
+     */
+    public function importFromAccounts(): int
+    {
+        return $this->db->execute(
+            "INSERT INTO domains (domain, client_id, account_id, status, created_at, updated_at)
+             SELECT x.domain, x.client_id, x.account_id, 'unknown', UTC_TIMESTAMP(), UTC_TIMESTAMP()
+               FROM (
+                   SELECT a.domain AS domain, MIN(a.id) AS account_id, MAX(a.client_id) AS client_id
+                     FROM whm_accounts a
+                    WHERE a.deleted_at IS NULL AND a.domain <> ''
+                 GROUP BY a.domain
+               ) x
+               LEFT JOIN domains d ON d.domain = x.domain AND d.deleted_at IS NULL
+              WHERE d.id IS NULL"
+        );
+    }
+
+    /**
      * All non-deleted domains, minimal fields, for the expiry checker.
      *
      * @return array<int, array<string, mixed>>
