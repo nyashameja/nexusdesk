@@ -356,11 +356,13 @@ final class AccountRepository
         $limit = max(1, min($limit, 100));
         return $this->db->all(
             "SELECT a.id, a.domain, a.username, a.suspended, a.ssl_status,
+                    COALESCE(NULLIF(c.company_name,''), NULLIF(TRIM(CONCAT_WS(' ', c.first_name, c.last_name)),'')) AS client_name,
                     COALESCE(u.disk_used_mb,0) AS disk_used, COALESCE(u.disk_limit_mb,0) AS disk_limit,
                     COALESCE(u.bandwidth_used_mb,0) AS bw_used, COALESCE(u.bandwidth_limit_mb,0) AS bw_limit,
                     (SELECT MIN(s.days_remaining) FROM whm_ssl_certificates s WHERE s.account_id = a.id) AS ssl_days
                FROM whm_accounts a
           LEFT JOIN whm_account_usage u ON u.account_id = a.id
+          LEFT JOIN clients c ON c.id = a.client_id
               WHERE a.deleted_at IS NULL
                 AND (
                     a.suspended = 1

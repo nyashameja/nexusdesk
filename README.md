@@ -23,6 +23,32 @@ clients and financials.
   Content-Security-Policy (`script-src 'self'`) is enforced. Dashboard chart
   data is passed to Chart.js via a JSON data island, never inline script.
 
+### Design system
+
+`public/assets/css/app.css` is a single token-driven stylesheet. Colours,
+typography, spacing, radii, shadows, motion, layout and z-index layers are all
+CSS custom properties declared once in `:root` — component rules reference the
+tokens rather than repeating literal values, so the palette can be retuned in
+one place.
+
+- **Palette:** deep emerald/teal brand on a light neutral grey canvas, with
+  distinct success / warning / danger / info / neutral status ramps.
+- **Typography:** a system font stack tuned to Inter's metrics. No webfont is
+  downloaded — nothing is fetched from a CDN and no binary font assets ship
+  with the app.
+- **Responsive:** mobile-first. The sidebar becomes a slide-in drawer below
+  901px (focus-trapped, Escape to close, scroll-locked, closes on outside
+  click), and operational tables switch to stacked record cards below 768px
+  instead of scrolling a squeezed table sideways. Verified to produce **zero
+  horizontal overflow at 360, 390, 430, 768, 1024, 1280 and 1440px**.
+- **Accessibility:** skip link, semantic landmarks, `aria-current` on the active
+  nav item, visible focus rings, screen-reader labels on icon-only controls,
+  status conveyed by icon/text as well as colour, and full
+  `prefers-reduced-motion` support.
+
+Existing views keep working because the `.pg-*` class contract was preserved
+while the foundations underneath were rebuilt.
+
 ## 2. Directory layout
 
 ```
@@ -150,6 +176,23 @@ once to add the `alerts_log` table.
 - **Email** (PHP `mail()`, no third-party service): set `ALERT_EMAIL_TO`
   (comma-separated). Optionally set `ALERT_EMAIL_FROM` to a real mailbox on your
   domain for best deliverability.
+Telegram messages are structured for action without opening the dashboard:
+severity heading, server, client, domain, account, package, current value,
+threshold crossed, due date, days remaining, a recommended action, an inline
+**Open in HostOps** button and a stable alert reference. Timestamps use
+Africa/Johannesburg. Several alerts from one run collapse into a single
+severity-grouped digest (capped, with an "…and N additional alerts" line) so a
+synchronisation never floods the chat.
+
+Message wording lives in `TelegramMessageFormatter` (pure and unit-tested);
+`TelegramAlertChannel` only handles transport, retry policy and error
+reporting. Every dynamic value is escaped for Telegram's HTML parse mode, so a
+client name containing `&` or `<` cannot break delivery. Transient failures
+(network, 429, 5xx) are retried up to three times; permanent configuration
+errors (bad token, wrong chat id, blocked bot) fail immediately rather than
+retrying a misconfiguration. The bot token is never logged, never shown in the
+UI, and is stripped from any error text that surfaces.
+
 - **Telegram** (free, via the Bot API — recommended for instant push):
   1. In Telegram, message **@BotFather**, send `/newbot`, follow the prompts, and
      copy the **bot token** it gives you.

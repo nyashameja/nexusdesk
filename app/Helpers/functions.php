@@ -119,6 +119,37 @@ if (!function_exists('asset')) {
     }
 }
 
+if (!function_exists('time_ago')) {
+    /**
+     * Human "5 minutes ago" phrasing for a UTC timestamp, used across the
+     * shell and dashboard so freshness reads the same everywhere.
+     */
+    function time_ago(?string $utcTimestamp, string $never = 'never'): string
+    {
+        if ($utcTimestamp === null || $utcTimestamp === '') {
+            return $never;
+        }
+
+        $then = strtotime($utcTimestamp . ' UTC');
+        if ($then === false) {
+            return $never;
+        }
+
+        $seconds = time() - $then;
+        if ($seconds < 0) {
+            return 'just now';
+        }
+
+        return match (true) {
+            $seconds < 60      => 'just now',
+            $seconds < 3600    => (int) ($seconds / 60) . ' min ago',
+            $seconds < 86400   => (int) ($seconds / 3600) . ' hr ago',
+            $seconds < 2592000 => (int) ($seconds / 86400) . ' day' . ((int) ($seconds / 86400) === 1 ? '' : 's') . ' ago',
+            default            => date('d M Y', $then),
+        };
+    }
+}
+
 if (!function_exists('old')) {
     /**
      * Retrieve a previously submitted form value flashed to the session.

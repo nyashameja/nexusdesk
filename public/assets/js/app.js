@@ -5,20 +5,99 @@
     var csrfToken = document.querySelector('meta[name="csrf-token"]');
     csrfToken = csrfToken ? csrfToken.getAttribute('content') : '';
 
-    /* ---- Mobile sidebar toggle ---- */
+    var FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+
+    /* ---- Mobile navigation drawer ----
+       Slide-in panel with a focus trap, Escape handling, scroll lock and
+       outside-click dismissal. Falls back to a plain visible sidebar if JS
+       never runs (CSS shows it from 901px up regardless). */
     function initSidebar() {
-        var burger = document.querySelector('[data-toggle="sidebar"]');
-        var sidebar = document.querySelector('.pg-sidebar');
+        var burger   = document.querySelector('[data-toggle="sidebar"]');
+        var sidebar  = document.querySelector('.pg-sidebar');
         var backdrop = document.querySelector('.pg-backdrop');
         if (!burger || !sidebar) return;
 
-        function open() { sidebar.classList.add('open'); if (backdrop) backdrop.classList.add('show'); }
-        function close() { sidebar.classList.remove('open'); if (backdrop) backdrop.classList.remove('show'); }
+        var lastFocused = null;
 
-        burger.addEventListener('click', function () {
-            sidebar.classList.contains('open') ? close() : open();
-        });
+        function isOpen() { return sidebar.classList.contains('open'); }
+
+        function open() {
+            lastFocused = document.activeElement;
+            sidebar.classList.add('open');
+            if (backdrop) { backdrop.hidden = false; backdrop.classList.add('show'); }
+            burger.setAttribute('aria-expanded', 'true');
+            document.body.classList.add('pg-scroll-locked');
+            var first = sidebar.querySelector(FOCUSABLE);
+            if (first) first.focus();
+        }
+
+        function close() {
+            if (!isOpen()) return;
+            sidebar.classList.remove('open');
+            if (backdrop) { backdrop.classList.remove('show'); backdrop.hidden = true; }
+            burger.setAttribute('aria-expanded', 'false');
+            document.body.classList.remove('pg-scroll-locked');
+            if (lastFocused && lastFocused.focus) lastFocused.focus();
+        }
+
+        burger.addEventListener('click', function () { isOpen() ? close() : open(); });
         if (backdrop) backdrop.addEventListener('click', close);
+
+        document.addEventListener('keydown', function (e) {
+            if (!isOpen()) return;
+
+            if (e.key === 'Escape') { close(); return; }
+
+            /* Keep Tab inside the drawer while it covers the page. */
+            if (e.key !== 'Tab') return;
+            var items = Array.prototype.filter.call(
+                sidebar.querySelectorAll(FOCUSABLE),
+                function (el) { return el.offsetParent !== null; }
+            );
+            if (!items.length) return;
+            var first = items[0], last = items[items.length - 1];
+            if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+            else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+        });
+
+        /* Returning to desktop width must not leave the page scroll-locked. */
+        window.addEventListener('resize', function () {
+            if (window.innerWidth > 900 && isOpen()) close();
+        });
+    }
+
+    /* ---- Desktop sidebar collapse (icons only), remembered per browser ---- */
+    function initSidebarCollapse() {
+        var btn   = document.querySelector('[data-toggle="sidebar-collapse"]');
+        var shell = document.getElementById('pg-shell');
+        if (!btn || !shell) return;
+
+        var KEY = 'pg.sidebar.collapsed';
+
+        function apply(collapsed) {
+            shell.classList.toggle('sidebar-collapsed', collapsed);
+            btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+        }
+
+        var stored = null;
+        try { stored = window.localStorage.getItem(KEY); } catch (err) { /* private mode */ }
+        apply(stored === '1');
+
+        btn.addEventListener('click', function () {
+            var collapsed = !shell.classList.contains('sidebar-collapsed');
+            apply(collapsed);
+            try { window.localStorage.setItem(KEY, collapsed ? '1' : '0'); } catch (err) { /* ignore */ }
+        });
+    }
+
+    /* ---- Submit buttons show progress instead of looking unresponsive ---- */
+    function initFormLoading() {
+        document.addEventListener('submit', function (e) {
+            var form = e.target;
+            if (!(form instanceof HTMLFormElement) || form.hasAttribute('data-no-loading')) return;
+            var btn = form.querySelector('button[type="submit"], button:not([type])');
+            if (btn) setTimeout(function () { btn.setAttribute('data-loading', 'true'); }, 0);
+        });
     }
 
     /* ---- Toast notifications ---- */
@@ -134,6 +213,8 @@
 
     document.addEventListener('DOMContentLoaded', function () {
         initSidebar();
+        initSidebarCollapse();
+        initFormLoading();
         initWhmTest();
         initCapabilityCheck();
     });

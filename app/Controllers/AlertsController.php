@@ -15,6 +15,8 @@ use ParagonHostOps\Services\AuditLogger;
 /**
  * Alerts settings: shows configuration for every channel, runs a check on
  * demand, and sends a test message. Requires settings.view.
+ *
+ * Secrets are never read back into the view — only whether they are present.
  */
 final class AlertsController extends Controller
 {
@@ -30,21 +32,10 @@ final class AlertsController extends Controller
 
     public function index(Request $request, array $params): Response
     {
-        $telegram = (array) config('alerts.telegram', []);
-
-        $channelRows = [];
-        foreach ($this->channels as $channel) {
-            $channelRows[] = [
-                'name'       => $channel->name(),
-                'configured' => $channel->isConfigured(),
-                'detail'     => $this->detailFor($channel->name(), $telegram),
-            ];
-        }
-
         return $this->view('settings.alerts', [
             'title'      => 'Alerts',
             'enabled'    => (bool) config('alerts.enabled', false),
-            'channels'   => $channelRows,
+            'channels'   => $this->channelRows(),
             'recipients' => (array) config('alerts.email.to', []),
             'thresholds' => (array) config('alerts.thresholds', []),
         ]);
@@ -54,11 +45,21 @@ final class AlertsController extends Controller
     {
         $summary = $this->alerts->run();
         $this->audit->record('alerts.run', "Alert check: {$summary['new']} new, {$summary['active']} active.");
-        $this->session()->flash(
-            'success',
-            "Alert check complete: {$summary['new']} new alert(s), {$summary['active']} active"
-            . ($summary['emailed'] ? ', notifications sent.' : ($summary['new'] > 0 ? ' (delivery disabled or no channel configured).' : '.'))
-        );
+
+        $message = "Alert check complete: {$summary['new']} new alert(s), {$summary['active']} active";
+        if ($summary['delivered'] !== []) {
+            $message .= '. Sent via ' . implode(', ', $summary['delivered']) . '.';
+        } elseif ($summary['new'] > 0) {
+            $message .= ' (delivery disabled or no channel configured).';
+        } else {
+            $message .= '.';
+        }
+
+        $this->session()->flash($summary['failed'] === [] ? 'success' : 'warning',
+            $summary['failed'] === []
+                ? $message
+                : $message . ' Failed: ' . implode(', ', $summary['failed']) . '.');
+
         return $this->redirect('/settings/alerts');
     }
 
@@ -66,7 +67,7 @@ final class AlertsController extends Controller
     {
         $sent = [];
         $failed = [];
-        $failureDetails = [];
+        $details = [];
 
         foreach ($this->channels as $channel) {
             if (!$channel->isConfigured()) {
@@ -81,12 +82,15 @@ final class AlertsController extends Controller
                 continue;
             }
             $failed[] = $channel->name();
-            if ($channel instanceof TelegramAlertChannel && $channel->lastError() !== '') {
-                $failureDetails[] = $channel->name() . ' — ' . $channel->lastError();
+            if ($channel->lastError() !== '') {
+                $details[] = $channel->name() . ' — ' . $channel->lastError();
             }
         }
 
-        $this->audit->record('alerts.test', 'Sent test alert. OK: ' . (implode(',', $sent) ?: 'none') . '; failed: ' . (implode(',', $failed) ?: 'none'));
+        $this->audit->record(
+            'alerts.test',
+            'Sent test alert. OK: ' . (implode(',', $sent) ?: 'none') . '; failed: ' . (implode(',', $failed) ?: 'none')
+        );
 
         if ($sent === [] && $failed === []) {
             $this->session()->flash('error', 'No channel is configured. Set up email and/or Telegram in .env.');
@@ -94,8 +98,8 @@ final class AlertsController extends Controller
             $this->session()->flash('success', 'Test sent via: ' . implode(', ', $sent) . '.');
         } else {
             $message = 'Sent via: ' . (implode(', ', $sent) ?: 'none') . '. Failed: ' . implode(', ', $failed) . '.';
-            if ($failureDetails !== []) {
-                $message .= ' (' . implode('; ', $failureDetails) . ')';
+            if ($details !== []) {
+                $message .= ' (' . implode('; ', $details) . ')';
             }
             $this->session()->flash('warning', $message);
         }
@@ -103,21 +107,79 @@ final class AlertsController extends Controller
         return $this->redirect('/settings/alerts');
     }
 
+    // -----------------------------------------------------------------
+
     /**
-     * @param array<string, mixed> $telegram
+     * Per-channel status for the settings table. Reports only whether each
+     * secret is present — never its value.
+     *
+     * @return array<int, array{name:string, configured:bool, detail:string, settings:array<int,array{0:string,1:bool,2:string}>}>
      */
-    private function detailFor(string $channel, array $telegram): string
+    private function channelRows(): array
     {
-        if ($channel === 'email') {
+        $rows = [];
+
+        foreach ($this->channels as $channel) {
+            $rows[] = [
+                'name'       => $channel->name(),
+                'configured' => $channel->isConfigured(),
+                'detail'     => $this->detailFor($channel),
+                'settings'   => $this->settingsFor($channel),
+            ];
+        }
+
+        return $rows;
+    }
+
+    private function detailFor(AlertChannelInterface $channel): string
+    {
+        if ($channel->name() === 'email') {
             $to = (array) config('alerts.email.to', []);
-            return $to === [] ? 'No recipients (set ALERT_EMAIL_TO)' : implode(', ', $to);
+            return $to === [] ? 'No recipients set (ALERT_EMAIL_TO)' : count($to) . ' recipient(s)';
         }
-        if ($channel === 'telegram') {
+
+        if ($channel->name() === 'telegram') {
+            $telegram = (array) config('alerts.telegram', []);
             if (empty($telegram['bot_token']) || empty($telegram['chat_id'])) {
-                return 'Bot token / chat ID not set';
+                return 'Bot token and/or chat ID not set';
             }
-            return empty($telegram['enabled']) ? 'Configured but disabled (ALERT_TELEGRAM_ENABLED=false)' : 'Chat ID ' . $telegram['chat_id'];
+            if (!TelegramAlertChannel::isValidChatId((string) $telegram['chat_id'])) {
+                return 'Chat ID is not a valid Telegram id';
+            }
+            return empty($telegram['enabled'])
+                ? 'Configured but disabled (ALERT_TELEGRAM_ENABLED=false)'
+                : 'Ready';
         }
+
         return '';
+    }
+
+    /**
+     * Presence-only checklist per channel: [label, present, note].
+     *
+     * @return array<int, array{0:string,1:bool,2:string}>
+     */
+    private function settingsFor(AlertChannelInterface $channel): array
+    {
+        if ($channel->name() === 'email') {
+            $to   = (array) config('alerts.email.to', []);
+            $from = (string) config('alerts.email.from', '');
+            return [
+                ['Recipients', $to !== [], $to === [] ? 'Set ALERT_EMAIL_TO' : implode(', ', $to)],
+                ['Sender address', $from !== '', $from !== '' ? $from : 'Defaults to noreply@ your app host'],
+            ];
+        }
+
+        if ($channel->name() === 'telegram') {
+            $telegram = (array) config('alerts.telegram', []);
+            $chatId   = (string) ($telegram['chat_id'] ?? '');
+            return [
+                ['Enabled', !empty($telegram['enabled']), 'ALERT_TELEGRAM_ENABLED'],
+                ['Bot token', !empty($telegram['bot_token']), 'Stored in .env — never displayed'],
+                ['Chat ID', TelegramAlertChannel::isValidChatId($chatId), $chatId !== '' ? 'Configured' : 'Set ALERT_TELEGRAM_CHAT_ID'],
+            ];
+        }
+
+        return [];
     }
 }

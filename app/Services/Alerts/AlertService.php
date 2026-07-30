@@ -10,10 +10,13 @@ use ParagonHostOps\Repositories\NotificationRepository;
 /**
  * Detects alert conditions (SSL / domain expiry, disk & bandwidth usage),
  * de-duplicates them against the alerts log, records in-app notifications, and
- * sends a single digest per run through the configured channels.
+ * hands the structured alerts to each configured channel.
  *
- * Threshold bucketing is pure and unit-tested; the run() method wires it to the
- * repositories and channels.
+ * Detection stays free of presentation: this class produces Alert objects and
+ * a plain-text digest; channels decide how to render them.
+ *
+ * Threshold bucketing is pure and unit-tested; run() wires it to repositories
+ * and channels.
  */
 final class AlertService
 {
@@ -29,11 +32,11 @@ final class AlertService
     }
 
     /**
-     * @return array{new:int, active:int, resolved:int, emailed:bool}
+     * @return array{new:int, active:int, resolved:int, emailed:bool, delivered:array<int,string>, failed:array<int,string>}
      */
     public function run(): array
     {
-        $alerts = $this->collect();               // key => [category,message,severity]
+        $alerts = $this->collect();               // key => Alert
         $active = array_keys($alerts);
 
         $resolved = $this->alerts->deleteResolved($active);
@@ -41,39 +44,57 @@ final class AlertService
         $newKeys  = array_values(array_diff($active, $already));
 
         if ($newKeys === []) {
-            return ['new' => 0, 'active' => count($active), 'resolved' => $resolved, 'emailed' => false];
+            return [
+                'new' => 0, 'active' => count($active), 'resolved' => $resolved,
+                'emailed' => false, 'delivered' => [], 'failed' => [],
+            ];
         }
+
+        $newAlerts = array_map(static fn (string $k): Alert => $alerts[$k], $newKeys);
 
         // In-app notifications for each new alert.
-        foreach ($newKeys as $key) {
-            $a = $alerts[$key];
-            $this->notifications->createOnce($a['category'], $a['message'], '', $a['severity']);
+        foreach ($newAlerts as $alert) {
+            $this->notifications->createOnce($alert->category, $alert->summary, $alert->link ?? '', $this->notificationSeverity($alert));
         }
 
-        // One digest email covering all new alerts.
-        $emailed = false;
+        // One digest per run, per channel.
+        $delivered = [];
+        $failed    = [];
         if ($this->enabled) {
-            $subject = 'Paragon HostOps: ' . count($newKeys) . ' new alert' . (count($newKeys) === 1 ? '' : 's');
-            $body    = $this->digest(array_map(static fn (string $k) => $alerts[$k], $newKeys));
+            $subject = 'Paragon HostOps: ' . count($newAlerts) . ' new alert' . (count($newAlerts) === 1 ? '' : 's');
+            $body    = $this->digest($newAlerts);
+
             foreach ($this->channels as $channel) {
-                if ($channel->isConfigured() && $channel->notify($subject, $body)) {
-                    $emailed = true;
+                if (!$channel->isConfigured()) {
+                    continue;
+                }
+                if ($channel->notifyAlerts($newAlerts, $subject, $body)) {
+                    $delivered[] = $channel->name();
+                } else {
+                    $failed[] = $channel->name();
                 }
             }
         }
 
         $this->alerts->markSent(array_map(
-            static fn (string $k): array => ['key' => $k, 'category' => $alerts[$k]['category'], 'message' => $alerts[$k]['message']],
-            $newKeys
+            static fn (Alert $a): array => ['key' => $a->key, 'category' => $a->category, 'message' => $a->summary],
+            $newAlerts
         ));
 
-        return ['new' => count($newKeys), 'active' => count($active), 'resolved' => $resolved, 'emailed' => $emailed];
+        return [
+            'new'       => count($newKeys),
+            'active'    => count($active),
+            'resolved'  => $resolved,
+            'emailed'   => $delivered !== [],
+            'delivered' => $delivered,
+            'failed'    => $failed,
+        ];
     }
 
     /**
      * Build the active alert set keyed by a stable de-dup key.
      *
-     * @return array<string, array{category:string, message:string, severity:string}>
+     * @return array<string, Alert>
      */
     private function collect(): array
     {
@@ -85,13 +106,28 @@ final class AlertService
             if ($bucket === null) {
                 continue;
             }
-            $out["ssl:{$row['domain']}:{$bucket}"] = [
-                'category' => 'ssl',
-                'message'  => $days < 0
-                    ? "SSL certificate for {$row['domain']} has expired."
-                    : "SSL certificate for {$row['domain']} expires in {$days} day(s).",
-                'severity' => self::severity($bucket),
-            ];
+            $domain = (string) $row['domain'];
+            $key    = "ssl:{$domain}:{$bucket}";
+            $out[$key] = new Alert(
+                key:       $key,
+                category:  'ssl',
+                severity:  self::severity($bucket),
+                title:     $days < 0 ? 'SSL certificate has expired' : "SSL certificate expires in {$days} days",
+                summary:   $days < 0
+                    ? "SSL certificate for {$domain} has expired."
+                    : "SSL certificate for {$domain} expires in {$days} day(s).",
+                domain:    $domain,
+                client:    self::nullable($row['client_name'] ?? null),
+                account:   self::nullable($row['username'] ?? null),
+                package:   self::nullable($row['package'] ?? null),
+                threshold: self::daysThresholdLabel($bucket),
+                dueDate:   self::nullable($row['valid_to'] ?? null),
+                days:      $days,
+                link:      isset($row['account_id']) && $row['account_id'] !== null
+                    ? '/accounts/' . (int) $row['account_id']
+                    : '/ssl',
+                action:    'Confirm that AutoSSL is enabled for this domain and run an SSL validation check.',
+            );
         }
 
         foreach ($this->alerts->domainCandidates() as $row) {
@@ -100,31 +136,72 @@ final class AlertService
             if ($bucket === null) {
                 continue;
             }
-            $out["domain:{$row['id']}:{$bucket}"] = [
-                'category' => 'domain',
-                'message'  => $days < 0
-                    ? "Domain {$row['domain']} has expired."
-                    : "Domain {$row['domain']} expires in {$days} day(s).",
-                'severity' => self::severity($bucket),
-            ];
+            $domain = (string) $row['domain'];
+            $key    = "domain:{$row['id']}:{$bucket}";
+            $out[$key] = new Alert(
+                key:       $key,
+                category:  'domain',
+                severity:  self::severity($bucket),
+                title:     $days < 0 ? 'Domain registration has expired' : "Domain expires in {$days} days",
+                summary:   $days < 0
+                    ? "Domain {$domain} has expired."
+                    : "Domain {$domain} expires in {$days} day(s).",
+                domain:    $domain,
+                client:    self::nullable($row['client_name'] ?? null),
+                current:   empty($row['auto_renew']) ? 'Auto-renew not confirmed' : 'Auto-renew enabled',
+                threshold: self::daysThresholdLabel($bucket),
+                dueDate:   self::nullable($row['expires_at'] ?? null),
+                days:      $days,
+                link:      '/domains/' . (int) $row['id'],
+                action:    'Confirm who is responsible for renewal and contact the client if payment is required.',
+            );
         }
 
         foreach ($this->alerts->usageCandidates() as $row) {
+            $accountId = (int) $row['id'];
+            $domain    = (string) $row['domain'];
+            $client    = self::nullable($row['client_name'] ?? null);
+            $username  = self::nullable($row['username'] ?? null);
+            $package   = self::nullable($row['package'] ?? null);
+
             $disk = self::bucketUsage((float) $row['disk_pct']);
             if ($disk !== null) {
-                $out["disk:{$row['id']}:{$disk}"] = [
-                    'category' => 'disk',
-                    'message'  => "{$row['domain']} disk usage at {$row['disk_pct']}%.",
-                    'severity' => self::severity($disk),
-                ];
+                $key = "disk:{$accountId}:{$disk}";
+                $out[$key] = new Alert(
+                    key:       $key,
+                    category:  'disk',
+                    severity:  self::severity($disk),
+                    title:     'Disk usage is approaching the limit',
+                    summary:   "{$domain} disk usage at {$row['disk_pct']}%.",
+                    domain:    $domain,
+                    client:    $client,
+                    account:   $username,
+                    package:   $package,
+                    current:   self::usageLabel($row['disk_used_mb'] ?? null, $row['disk_limit_mb'] ?? null, (float) $row['disk_pct']),
+                    threshold: $disk . '%',
+                    link:      '/accounts/' . $accountId,
+                    action:    'Review large files, email storage and backups, or recommend a package upgrade.',
+                );
             }
+
             $bw = self::bucketUsage((float) $row['bw_pct']);
             if ($bw !== null) {
-                $out["bw:{$row['id']}:{$bw}"] = [
-                    'category' => 'bandwidth',
-                    'message'  => "{$row['domain']} bandwidth usage at {$row['bw_pct']}%.",
-                    'severity' => self::severity($bw),
-                ];
+                $key = "bw:{$accountId}:{$bw}";
+                $out[$key] = new Alert(
+                    key:       $key,
+                    category:  'bandwidth',
+                    severity:  self::severity($bw),
+                    title:     'Bandwidth usage is approaching the limit',
+                    summary:   "{$domain} bandwidth usage at {$row['bw_pct']}%.",
+                    domain:    $domain,
+                    client:    $client,
+                    account:   $username,
+                    package:   $package,
+                    current:   self::usageLabel($row['bandwidth_used_mb'] ?? null, $row['bandwidth_limit_mb'] ?? null, (float) $row['bw_pct']),
+                    threshold: $bw . '%',
+                    link:      '/accounts/' . $accountId,
+                    action:    'Check for traffic spikes or large downloads, or recommend a package upgrade.',
+                );
             }
         }
 
@@ -132,13 +209,16 @@ final class AlertService
     }
 
     /**
-     * @param array<int, array{category:string, message:string, severity:string}> $items
+     * Plain-text digest, used by email and as the fallback body for any channel
+     * without its own formatting.
+     *
+     * @param array<int, Alert> $items
      */
-    private function digest(array $items): string
+    public function digest(array $items): string
     {
         $groups = ['ssl' => [], 'domain' => [], 'disk' => [], 'bandwidth' => []];
         foreach ($items as $item) {
-            $groups[$item['category']][] = $item['message'];
+            $groups[$item->category][] = $item->summary;
         }
 
         $titles = ['ssl' => 'SSL certificates', 'domain' => 'Domains', 'disk' => 'Disk usage', 'bandwidth' => 'Bandwidth usage'];
@@ -186,12 +266,56 @@ final class AlertService
         };
     }
 
-    private static function severity(string $bucket): string
+    /**
+     * Alert severity for a crossed bucket. The tightest buckets (expired, 5
+     * days, 95%) are treated as critical.
+     */
+    public static function severity(string $bucket): string
     {
         return match ($bucket) {
-            'expired', '5', '95' => 'danger',
-            '15', '80'           => 'warning',
-            default              => 'info',
+            'expired', '5', '95' => Alert::SEVERITY_CRITICAL,
+            '15', '80'           => Alert::SEVERITY_WARNING,
+            default              => Alert::SEVERITY_INFO,
         };
+    }
+
+    // -----------------------------------------------------------------
+
+    /** Map alert severity onto the in-app notification vocabulary. */
+    private function notificationSeverity(Alert $alert): string
+    {
+        return match ($alert->severity) {
+            Alert::SEVERITY_CRITICAL => 'danger',
+            Alert::SEVERITY_WARNING  => 'warning',
+            default                  => 'info',
+        };
+    }
+
+    private static function daysThresholdLabel(string $bucket): string
+    {
+        return $bucket === 'expired' ? 'Expired' : $bucket . ' days';
+    }
+
+    /** "8.7 GB of 10 GB (87%)" when limits are known, otherwise just the percentage. */
+    private static function usageLabel(mixed $usedMb, mixed $limitMb, float $percent): string
+    {
+        $pct = rtrim(rtrim(number_format($percent, 1), '0'), '.') . '%';
+
+        if ($usedMb === null || $limitMb === null || (float) $limitMb <= 0) {
+            return $pct;
+        }
+
+        $gb = static fn (float $mb): string => rtrim(rtrim(number_format($mb / 1024, 1), '0'), '.') . ' GB';
+
+        return $gb((float) $usedMb) . ' of ' . $gb((float) $limitMb) . ' (' . $pct . ')';
+    }
+
+    private static function nullable(mixed $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+        $value = trim((string) $value);
+        return $value === '' ? null : $value;
     }
 }

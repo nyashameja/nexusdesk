@@ -22,6 +22,7 @@ abstract class Controller
             'appName'     => config('app.name'),
             'tagline'     => config('app.tagline'),
             'notifUnread' => $this->unreadNotifications(),
+            'shell'       => $this->shellContext(),
         ];
 
         return Response::html($renderer->render($view, $data), $status);
@@ -69,5 +70,34 @@ abstract class Controller
         } catch (\Throwable) {
             return 0;
         }
+    }
+
+    /**
+     * Status shown in the app shell (sidebar footer + top bar): WHM
+     * reachability and data freshness. Every lookup fails safe so the chrome
+     * still renders when the database or WHM config is unavailable.
+     *
+     * @return array{whmConfigured:bool, lastSync:?string, server:?string}
+     */
+    private function shellContext(): array
+    {
+        $whmConfigured = false;
+        $lastSync      = null;
+        $server        = null;
+
+        try {
+            $whmConfigured = app(\ParagonHostOps\Services\Whm\WhmApiClient::class)->isConfigured();
+            $server        = (string) config('whm.host', '') ?: null;
+        } catch (\Throwable) {
+            // Leave defaults.
+        }
+
+        try {
+            $lastSync = app(\ParagonHostOps\Repositories\AccountRepository::class)->lastSyncAt();
+        } catch (\Throwable) {
+            // Leave defaults.
+        }
+
+        return ['whmConfigured' => $whmConfigured, 'lastSync' => $lastSync, 'server' => $server];
     }
 }

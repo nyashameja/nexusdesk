@@ -62,8 +62,11 @@ if ($account === null && !in_array('--no-domains', $argv, true)) {
 if ($account === null && !in_array('--no-alerts', $argv, true)) {
     $alerts = $container->get(\ParagonHostOps\Services\Alerts\AlertService::class)->run();
     echo sprintf(
-        "Alerts : %d new, %d active%s\n",
-        $alerts['new'], $alerts['active'], $alerts['emailed'] ? ', email sent' : ''
+        "Alerts : %d new, %d active%s%s\n",
+        $alerts['new'],
+        $alerts['active'],
+        $alerts['delivered'] ? ', sent via ' . implode(', ', $alerts['delivered']) : '',
+        $alerts['failed'] ? ', FAILED: ' . implode(', ', $alerts['failed']) : ''
     );
 }
 

@@ -19,6 +19,8 @@ final class EmailAlertChannel implements AlertChannelInterface
     ) {
     }
 
+    private string $lastError = '';
+
     public function name(): string
     {
         return 'email';
@@ -33,12 +35,31 @@ final class EmailAlertChannel implements AlertChannelInterface
     {
         $from = $this->config['from'] !== '' ? $this->config['from'] : ('noreply@' . ($this->appHost ?: 'localhost'));
 
-        return $this->mailer->send(
+        $ok = $this->mailer->send(
             $this->config['to'],
             $subject,
             $body,
             $from,
             $this->config['from_name'] ?? 'Paragon HostOps'
         );
+
+        $this->lastError = $ok ? '' : 'PHP mail() returned failure — check the server mail log.';
+
+        return $ok;
+    }
+
+    /**
+     * Email has no richer representation than the plain digest it is given.
+     *
+     * @param array<int, Alert> $alerts
+     */
+    public function notifyAlerts(array $alerts, string $subject, string $plainBody): bool
+    {
+        return $this->notify($subject, $plainBody);
+    }
+
+    public function lastError(): string
+    {
+        return $this->lastError;
     }
 }
